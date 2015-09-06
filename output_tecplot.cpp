@@ -5,6 +5,8 @@ void ISOP2P1::outputTecplot(const std::string &prefix)
 {
     if (output_vorticity == true)
 	computVorticity();
+    if (output_divergence == true)
+	computDivergence();
 
     RegularMesh<DIM> &mesh_p = irregular_mesh_p->regularMesh();
     RegularMesh<DIM> &mesh_v = irregular_mesh_v->regularMesh();
@@ -12,21 +14,6 @@ void ISOP2P1::outputTecplot(const std::string &prefix)
     int n_ele = mesh_v.n_geometry(2);
 
     FEMFunction <double, DIM> p_h_refine(fem_space_v);
-
-    /// 准备一个遍历全部单元的迭代器. 包括 v 和 p .
-//    FEMSpace<double,2>::ElementIterator the_element_v = fem_space_v.beginElement();
-//    FEMSpace<double,2>::ElementIterator end_element_v = fem_space_v.endElement();
-    /// 遍历速度单元, 将压力值插值到速度空间.
-//    for (the_element_v = fem_space_v.beginElement(); 
-//	 the_element_v != end_element_v; ++the_element_v) 
-//    {
-//	const std::vector<int>& element_dof_v = the_element_v->dof();
-//	int n_element_dof_v = the_element_v->n_dof();
-	/// 压力单元信息.
-//	Element<double, 2> &p_element = fem_space_p.element(index_v2p[the_element_v->index()]);
-//	for (int j = 0; j < n_element_dof_v; ++j)
-//	    p_h_refine(element_dof_v[j]) =  p_h.value(fem_space_v.dofInfo(element_dof_v[j]).interp_point, p_element);
-//    }
 
     Operator::L2Interpolate(p_h, p_h_refine);
     std::stringstream result;
@@ -38,9 +25,10 @@ void ISOP2P1::outputTecplot(const std::string &prefix)
     tecplot.precision(20);
     tecplot << "VARIABLES = \"X\", \"Y\", \"P\", \"U\", \"V\"";
     if (output_vorticity == true) 
-	tecplot << ", \"W\""<< std::endl;
-    else
-	tecplot << std::endl;
+	tecplot << ", \"W\"";
+    if (output_divergence == true)
+	    tecplot << ", \"D\"";
+    tecplot << std::endl;
     tecplot << "ZONE NODES=" << n_node << ", ELEMENTS=" << n_ele << ", DATAPACKING=BLOCK," << std::endl;
     tecplot << "ZONETYPE=FETRIANGLE" << std::endl;
     for (int i = 0; i < n_node; ++i)
@@ -57,9 +45,16 @@ void ISOP2P1::outputTecplot(const std::string &prefix)
     tecplot << std::endl;
     for (int i = 0; i < n_node; ++i)
         tecplot << v_h[1](i) << "\n";
+    tecplot << std::endl;
     if (output_vorticity == true)
+    {
 	for (int i = 0; i < n_node; ++i)
-	    tecplot << vot(i) << "\n";
+		tecplot << vot(i) << "\n";
+	tecplot << std::endl;
+    }
+    if (output_divergence == true)
+	    for (int i = 0; i < n_node; ++i)
+		    tecplot << div(i) << "\n";
     tecplot << std::endl;
     for (int i = 0; i < n_ele; ++i)
     {
@@ -110,8 +105,8 @@ void ISOP2P1::computVorticity()
     vot.reinit(fem_space_v);
  
     /// 准备一个遍历全部单元的迭代器. 包括 v 和 p .
-    FEMSpace<double,2>::ElementIterator the_element_v = fem_space_v.beginElement();
-    FEMSpace<double,2>::ElementIterator end_element_v = fem_space_v.endElement();
+    FEMSpace<double, DIM>::ElementIterator the_element_v = fem_space_v.beginElement();
+    FEMSpace<double, DIM>::ElementIterator end_element_v = fem_space_v.endElement();
     Vector<double> rhs_vot(n_dof_v);
 
     /// 遍历速度单元, 将压力值插值到速度空间.
@@ -122,10 +117,10 @@ void ISOP2P1::computVorticity()
     	double volume = the_element_v->templateElement().volume();
     	/// 积分精度, u 和 p 都是 1 次, 梯度和散度 u 都是常数. 因此矩阵拼
     	/// 装时积分精度不用超过 1 次. (验证一下!)
-    	const QuadratureInfo<2>& quad_info = the_element_v->findQuadratureInfo(4);
+    	const QuadratureInfo<DIM>& quad_info = the_element_v->findQuadratureInfo(2);
     	std::vector<double> jacobian = the_element_v->local_to_global_jacobian(quad_info.quadraturePoint());
     	int n_quadrature_point = quad_info.n_quadraturePoint();
-    	std::vector<Point<2> > q_point = the_element_v->local_to_global(quad_info.quadraturePoint());
+    	std::vector<Point<DIM> > q_point = the_element_v->local_to_global(quad_info.quadraturePoint());
     	const std::vector<int>& element_dof_v = the_element_v->dof();
     	int n_element_dof_v = the_element_v->n_dof();
     	std::vector<std::vector<double> > vx_gradient = v_h[0].gradient(q_point, *the_element_v);
@@ -143,6 +138,48 @@ void ISOP2P1::computVorticity()
     }
     AMGSolver solver(mat_v_mass);
     solver.solve(vot, rhs_vot, 1.0e-08, 200);	
+};
+
+void ISOP2P1::computDivergence()
+{
+    int n_dof_v = fem_space_v.n_dof();
+    div.reinit(fem_space_v);
+ 
+    /// 准备一个遍历全部单元的迭代器. 包括 v 和 p .
+    FEMSpace<double, DIM>::ElementIterator the_element_v = fem_space_v.beginElement();
+    FEMSpace<double, DIM>::ElementIterator end_element_v = fem_space_v.endElement();
+    Vector<double> rhs_div(n_dof_v);
+
+    /// 遍历速度单元, 将压力值插值到速度空间.
+    for (the_element_v = fem_space_v.beginElement(); 
+    	 the_element_v != end_element_v; ++the_element_v) 
+    {
+    	/// 当前单元信息.
+    	double volume = the_element_v->templateElement().volume();
+    	/// 积分精度, u 和 p 都是 1 次, 梯度和散度 u 都是常数. 因此矩阵拼
+    	/// 装时积分精度不用超过 1 次. (验证一下!)
+    	const QuadratureInfo<DIM>& quad_info = the_element_v->findQuadratureInfo(2);
+    	std::vector<double> jacobian = the_element_v->local_to_global_jacobian(quad_info.quadraturePoint());
+    	int n_quadrature_point = quad_info.n_quadraturePoint();
+    	std::vector<Point<DIM> > q_point = the_element_v->local_to_global(quad_info.quadraturePoint());
+    	const std::vector<int>& element_dof_v = the_element_v->dof();
+    	int n_element_dof_v = the_element_v->n_dof();
+    	std::vector<std::vector<double> > vx_gradient = v_h[0].gradient(q_point, *the_element_v);
+    	std::vector<std::vector<double> > vy_gradient = v_h[1].gradient(q_point, *the_element_v);
+
+    	for (int l = 0; l < n_quadrature_point; ++l)
+    	{
+    	    double Jxw = quad_info.weight(l) * jacobian[l] * volume;
+    	    for (int i = 0; i < n_element_dof_v; ++i)
+    	    {
+    		double cont = (vx_gradient[l][0] + vy_gradient[l][1]) * Jxw; 
+    		rhs_div(element_dof_v[i]) += cont;
+    	    }
+    	}
+    }
+    AMGSolver solver(mat_v_mass);
+    solver.solve(div, rhs_div, 1.0e-08, 200);
+    std::cout << "divergence norm : " << div.l2_norm() << std::endl;
 };
 
 #undef DIM

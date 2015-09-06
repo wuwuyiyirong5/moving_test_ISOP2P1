@@ -43,7 +43,6 @@
 
 #define PI (atan(1.0) * 4.0)
 
-
 /**
  * 主类. 针对无结构三角形网格. 带有两层网格结构. 细网格是粗网格三角形四
  * 等分形成. 原始一个粗网格单元构成的四个细网格单元形成一个宏单元片. 细
@@ -65,15 +64,15 @@ private:
 	TemplateGeometry<DIM> template_geometry; /**< 参考几何信息. */
 	CoordTransform<DIM, DIM> coord_transform; /**< 座标变换信息. */
 
-	/// 有限元空间构成. 这里本质上只有一种有限元, P1元.
-	TemplateDOF<DIM> template_dof; /**< 参考自由度. */
-	BasisFunctionAdmin<double, DIM, DIM> basis_function; /**< 基函数. */
-	std::vector<TemplateElement<double, DIM, DIM> > template_element; /**< 参考单元. */
-
+	/// 速度空间构成. 
+	TemplateDOF<DIM> template_dof; /**< 速度参考自由度. */
+	BasisFunctionAdmin<double, DIM, DIM> basis_function; /**< 速度基函数. */
+	std::vector<TemplateElement<double, DIM, DIM> > template_element; /**< 速度参考单元. */
 	FEMSpace<double, DIM> fem_space_v; /**< 速度空间. */
 	std::vector<FEMFunction<double, DIM> > v_h;	/**< 速度数值解. (向量型) */
 	std::vector<FEMFunction<double, DIM> > source_v; /**< 速度对应源项. (向量型) */
 
+	/// 压力空间构成.
 	FEMSpace<double, DIM> fem_space_p; /**< 压力空间. */
 	FEMFunction<double, DIM> p_h; /**< 压力数值解. (标量型) */
 	FEMFunction<double, DIM> source_p; /**< 压力对应源项. (标量型) */
@@ -82,7 +81,6 @@ private:
 	FEMFunction<double, DIM> wxy; /**< 外场速度, 用于调试. */
 
 	FEMFunction<double, DIM> vot; /**< 涡量, 用于输出. */
-	FEMFunction<double, DIM> div; /**< 散度, 用于输出. */
 
 	/// 速度和压力空间单元索引.
 	std::vector<std::vector<int> > index_p2v;
@@ -163,13 +161,11 @@ private:
 	bool Stokes_init;		/**< 是否要先运行稳态 Stokes 做初值. */
 	bool NS_init;		/**< 是否要先运行稳态 Navier-Stokes 做初值. */
 	bool isMoving;             /**< 网格是否进行移动. */
-	double scale;           /**< 初始网格参数. */
 	int max_step;           /**< 最大移动次数. */
 	double alpha;		/**< 计算monitor的参数. */
 	double beta;            /**< 计算monitor的参数. */
 	int scheme;			/**< 时间发展格式. */
 	bool output_vorticity;	/**< 是否要输出涡量. */
-	bool output_divergence;	/**< 是否要输出散度. */
 	double body_force;          /**< 外力. */
 	double angle;		/**< 倾角. x 轴正方向为 0 度.*/
 
@@ -186,23 +182,6 @@ private:
 	 */
 
 public:
-
-	class Matrix : public StiffMatrix<2,double>
-	{
-	private:
-		double dt, a;
-	public:
-		Matrix(FEMSpace<double,2>& sp, const double& _dt, const double& _a) :
-			dt(_dt), a(_a),
-			StiffMatrix<2,double>(sp) {};
-		virtual ~Matrix() {};
-	public:
-		virtual void getElementMatrix(const Element<double,2>& e0,
-				const Element<double,2>& e1,
-				const ActiveElementPairIterator<2>::State state);
-	};
-
-
 
 	/** 
 	 * 
@@ -332,10 +311,11 @@ public:
 	 * @param x 线性方程组未知量.
 	 */
 	void boundaryValueStokes(Vector<double> &x);
-
+	
 	/** 
-	 * updateSolution()中边界条件处理.
+	 * 移动网格updateSolution中的边界处理.
 	 * 
+	 * @param x 线性方程组未知量.
 	 */
 	void boundaryValueUpdateSolution(Vector<double> &x);
 	/** 
@@ -370,12 +350,6 @@ public:
 	void time_step();
 	
 	/** 
-	 * 计算散度.
-	 * 
-	 */
-	void computDivergence();
-
-	/** 
 	 * 计算涡量.
 	 * 
 	 */
@@ -389,13 +363,6 @@ public:
 	void outputTecplot(const std::string &prefix);
 
 	/** 
-	 * 输出 tecplot 格式的 P 网格, 用于调试.
-	 * 
-	 * @param prefix 
-	 */
-	void outputTecplotP(const std::string &prefix);
-
-	/** 
 	 * 输出 tecplot 格式的调试数据.
 	 * 
 	 * @param prefix 文件名前缀.
@@ -403,11 +370,35 @@ public:
 	void outputTecplot_debug(const std::string &prefix);
 
 	/** 
+	 * 建立逻辑网格. 该网格直接对物理区域网格做一个 Poisson 扩散至逻辑
+	 * 区域. 是用于区域变化中保持网格均匀的特殊情形.
+	 * 
+	 */
+	void buildLogicalMesh();
+	
+	
+	/** 
 	 * 移动网格时的 monitor, 暂时取全 1. 因为是移动区域.
 	 * 
 	 */
 	virtual void getMonitor(); 
+	
+	/** 
+	 * 一步网格移动.
+	 * 
+	 */
+	void movingMesh();
 
+	/** 
+	 * 同步全部网格. 用于移动网格.
+	 * 
+	 */
+	void syncMesh();
+	/** 
+	 * 更新速度网格和压力网格.
+	 * 
+	 */
+	virtual void updateMesh();
 	/** 
 	 * 移动网格时的数值解更新.
 	 * 
@@ -419,22 +410,6 @@ public:
 	 * 
 	 */
 	virtual void outputSolution();
-
-	/** 
-	 * 同步全部网格. 用于移动网格.
-	 * 
-	 */
-	void syncMesh();
-
-	/** 
-	 * 一步网格移动.
-	 * 
-	 */
-	void movingMesh();
-
-	void stepForward();
-
-	
 	/** 
 	 * 调试测试程序.
 	 * 

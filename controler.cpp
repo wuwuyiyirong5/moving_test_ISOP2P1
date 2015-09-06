@@ -58,8 +58,7 @@ void ISOP2P1::time_step()
     	dt = 0.1 * min_v_norm;
     else
 	dt = 0.1 * min_v_norm;
-    std::cout << "dt * max_v / min_h < 0.5 " << std::endl; 
-    std::cout<< "=> dt = 0.5 * min_h / max_v -> dt = " << dt << std::endl;
+    std::cout<< "dt = " << dt << std::endl;
 };
 
 #undef DIM

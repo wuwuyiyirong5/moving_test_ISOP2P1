@@ -22,11 +22,11 @@ void ISOP2P1::config(std::string _config_file)
     input >> trash >> trash >> NS_init;
     input >> trash >> trash >> scheme;
     input >> trash >> trash >> isMoving;
-    input >> trash >> trash >> scale;
     input >> trash >> trash >> max_step;
     input >> trash >> trash >> alpha;
     input >> trash >> trash >> beta;
     input >> trash >> trash >> output_vorticity;
+    input >> trash >> trash >> output_divergence;
     input >> trash >> trash >> body_force;
     input >> trash >> trash >> angle;
     input.close();

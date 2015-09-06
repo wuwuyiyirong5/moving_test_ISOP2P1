@@ -30,17 +30,21 @@ void ISOP2P1::boundaryValueStokes(Vector<double> &x)
 		/// 对 Dirichelet 边界根据边界分别赋值. 注意同时还要区别 x 和
 
 		/// 方腔流边界条件.
-		if (bm == 1 || bm == 2 || bm == 4)
+		if (bm == 1 || bm == 2 || bm == 5 || bm == 4)
 			x(i) = 0.0;
 		else if (bm == 3)
 			if (i < n_dof_v)
-				x(i) = 1.0;
+			{
+				Regularized regular;
+				x(i) = regular.value(fem_space_v.dofInfo(i).interp_point);
+			}
 			else
+			{
 				x(i) = 0.0;
-
+			}
 		/// 右端项这样改, 如果该行和列其余元素均为零, 则在迭代中确
 		/// 保该数值解和边界一致.
-		if (bm == 1 || bm == 2 || bm == 3 || bm == 4)
+		if (bm == 1 || bm == 2 || bm == 3 || bm == 4 || bm == 5)
 		{
 			rhs(i) = matrix.diag_element(i) * x(i);
 			/// 遍历 i 行.

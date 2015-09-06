@@ -1,0 +1,99 @@
+/**
+ * @file   ISOP2P1.cpp
+ * @author Heyu Wang <scshw@cslin107.csunix.comp.leeds.ac.uk>
+ * @date   Tue Nov  4 14:33:17 2014
+ * 
+ * @brief ISO P2P1 有限元的网格, 空间, 矩阵信息集中封装类的实现.
+ * 
+ * 
+ */
+
+#include "ISOP2P1.h"
+#include "functions.h"
+#define DIM 2
+
+
+void ISOP2P1::initialize()
+{
+    /// 读取配置文件.
+    config("config");
+    /// 检查点: 起始时间, 结束时间, 当前时间和步长.
+    std::cout << "t0 = " << t0 << std::endl;
+    std::cout << "t1 = " << t1 << std::endl;
+    std::cout << "t = " << t << std::endl;
+    std::cout << "dt = " << dt << std::endl;
+    /// 构建网格.
+    buildMesh();
+    /// 构建混合有限元 ISOP1P2 空间. 
+    buildFEMSpace();
+    /// 构建矩阵结构和索引.
+    buildMatrixStruct();
+    /// 构建通用矩阵. 
+    buildMatrix();
+    /// 可以选择是否需要以 NS 或 Stokes 问题稳态解做初值. 而 NS 问题稳
+    /// 态解则需要以相应的 Stokes 问题稳态解做初值.
+    if (Stokes_init == true || NS_init == true)
+	solveStokes();
+    /// 是否以 NS 问题稳态解做初值.
+    if (NS_init == true)
+	solveNS(n_method);
+    // time_step();
+
+    /// 为了看一下移动前网格.
+    outputTecplot("initial_value0");
+    if (isMoving == 1)
+    {
+	double scale, scale_step = 0.2;
+	scale = scale_step;
+	do {
+	    /// 因为有精确解, 所以可以如下操作.
+	    AccuracyVx accuracy_vx(viscosity, t);
+	    AccuracyVy accuracy_vy(viscosity, t);
+	    Operator::L2Project(accuracy_vx, v_h[0], Operator::LOCAL_LEAST_SQUARE, 3);
+	    Operator::L2Project(accuracy_vy, v_h[1], Operator::LOCAL_LEAST_SQUARE, 3);
+	    v_h[0].scale(scale);
+	    v_h[1].scale(scale);
+	    p_h.scale(scale);
+	    moveMesh();
+	    
+	    std::cout << "\r\tscale = " << scale << std::endl;
+	    scale += scale_step;
+	} while (scale <= 1.0);
+	outputSolution();
+    }
+    AccuracyVx accuracy_vx(viscosity, t);
+    AccuracyVy accuracy_vy(viscosity, t);
+    Operator::L2Project(accuracy_vx, v_h[0], Operator::LOCAL_LEAST_SQUARE, 3);
+    Operator::L2Project(accuracy_vy, v_h[1], Operator::LOCAL_LEAST_SQUARE, 3);
+    
+    /// 输出一下初值.
+    outputTecplot("initial_value");
+	
+};
+
+void ISOP2P1::run()
+{
+    initialize();
+    std::cout << "t0 = " << t0 << std::endl;
+    std::cout << "t1 = " << t1 << std::endl;
+    std::cout << "t = " << t << std::endl;
+    std::cout << "dt = " << dt << std::endl;
+    std::cout << "Begin to evolve ..." << std::endl;
+    do {
+	if (scheme == 1)
+	{
+	    if(isMoving == 1)
+	    {
+		moveMesh();
+		/// 重新构造矩阵.
+		buildMatrix();
+	    }
+	    stepForwardEuler();
+	    // time_step();
+	}
+	t += dt;
+	std::cout << " t = " << t << std::endl;
+    } while(t < t1);
+};
+
+#undef DIM
