@@ -41,9 +41,6 @@ void ISOP2P1::getMonitor()
 	maxStep() = max_step;
 	/// 同步网格.
 	syncMesh();
-	// // /// 输出一下.
-	// outputTecplot("NS_Euler");
-	// getchar();
 
 	FEMFunction<double, DIM> _u_h(fem_space_p);
 	FEMFunction<double, DIM> _v_h(fem_space_p);
@@ -55,7 +52,7 @@ void ISOP2P1::getMonitor()
 	for (int i = 0; the_element != end_element; ++the_element) 
 	{
 		double volume = the_element->templateElement().volume();
-		const QuadratureInfo<DIM>& quad_info = the_element->findQuadratureInfo(2);
+		const QuadratureInfo<DIM>& quad_info = the_element->findQuadratureInfo(3);
 		std::vector<double> jacobian = the_element->local_to_global_jacobian(quad_info.quadraturePoint());
 		int n_quadrature_point = quad_info.n_quadraturePoint();
 		std::vector<Point<DIM> > q_point = the_element->local_to_global(quad_info.quadraturePoint());
@@ -70,10 +67,10 @@ void ISOP2P1::getMonitor()
 			double Jxw = quad_info.weight(l) * jacobian[l] * volume;
 			area += Jxw;
 			norm += u_h_value[l] * u_h_value[l] + v_h_value[l] * v_h_value[l];
-			d += Jxw * fabs(v_h_gradient[l][0] - u_h_gradient[l][1]);
+			d += Jxw * (innerProduct(u_h_gradient[l], u_h_gradient[l]) + innerProduct(v_h_gradient[l], v_h_gradient[l]));
 		}
 		norm = 1.0 / (eps + sqrt(norm));
-		monitor(i++) = d * norm / area;
+		monitor(i++) = d / area;
 	}
 	std::cout << "max monitor=" << *std::max_element(monitor().begin(), monitor().end())
 		  << "\tmin monitor=" << *std::min_element(monitor().begin(), monitor().end())
@@ -81,12 +78,12 @@ void ISOP2P1::getMonitor()
 	double max_monitor = *std::max_element(monitor().begin(), monitor().end());
 	smoothMonitor(2);
 	for (int i = 0; i < n_geometry(2); ++i)
-		monitor(i) = 1.0 / sqrt(1.0 + alpha * monitor(i));
+		monitor(i) = 1.0 / sqrt(1.0 + alpha * monitor(i) * monitor(i));
 };
 
 void ISOP2P1::updateSolution()
 {
-	/// 更新插值点.
+	// /// 更新插值点.
 	fem_space_p.updateDofInterpPoint();
 	fem_space_v.updateDofInterpPoint();
 	
@@ -107,12 +104,11 @@ void ISOP2P1::updateSolution()
 	int n_total_dof_v = 2 * n_dof_v;
 	
 	/// 一步Euler.
-	for (int m = 3; m > 0; --m)
+	for (int m = 1; m > 0; --m)
 	{
 		/// 系数矩阵直接使用 Stokes 矩阵结构.
 		SparseMatrix<double> mat_moving;
 		mat_moving.reinit(sp_stokes);
-
 		/// (0, 0) 
 		for (int i = 0; i < sp_vxvx.n_nonzero_elements(); ++i)
 			mat_moving.global_entry(index_vxvx[i]) = mat_v_mass.global_entry(i); 
@@ -136,9 +132,8 @@ void ISOP2P1::updateSolution()
 		for (int i = 0; i < sp_vyp.n_nonzero_elements(); ++i)
 			mat_moving.global_entry(index_vyp[i]) = (1.0 / m) * mat_vyp_div.global_entry(i);
 
-		/// 问题右端项.
+		/// 问题的右端项.
 		rhs.reinit(n_total_dof);
-
 		FEMSpace<double, DIM>::ElementIterator the_element_v = fem_space_v.beginElement();
 		FEMSpace<double, DIM>::ElementIterator end_element_v = fem_space_v.endElement();
 		/// 遍历速度单元, 拼装相关系数矩阵和右端项.
@@ -147,8 +142,8 @@ void ISOP2P1::updateSolution()
 		{
 			/// 当前单元信息.
 			double volume = the_element_v->templateElement().volume();
-			/// 积分精度至少为2, u 和 p 都是 1 次, 梯度和散度 u 都是常数.
-			const QuadratureInfo<DIM>& quad_info = the_element_v->findQuadratureInfo(2);
+			/// 积分精度至少为2.
+			const QuadratureInfo<DIM>& quad_info = the_element_v->findQuadratureInfo(3);
 			std::vector<double> jacobian = the_element_v->local_to_global_jacobian(quad_info.quadraturePoint());
 			int n_quadrature_point = quad_info.n_quadraturePoint();
 			std::vector<Point<DIM> > q_point = the_element_v->local_to_global(quad_info.quadraturePoint());
@@ -161,8 +156,7 @@ void ISOP2P1::updateSolution()
 			const std::vector<int>& element_dof_v = the_element_v->dof();
 			int n_element_dof_v = the_element_v->n_dof();
 			/// 速度积分点上的移动方向, 注意是速度单元的积分点, 在压力单元上的移动方向.
-			/// 会不会是在这里出问题: 移动的是P网格, 但是对应4个速度单元上的积分点也位于大的压力单元上, 
-			/// 可以看作是压力单元上的点, 所以下面一行程序, 想想应该是没有问题.
+			/// 所以下面一行程序, 仔细算过, 没有问题.
 			std::vector<std::vector<double> > move_vector = moveDirection(q_point, index_v2p[the_element_v->index()]);
 			for (int l = 0; l < n_quadrature_point; ++l)
 			{
@@ -179,14 +173,11 @@ void ISOP2P1::updateSolution()
 				}
 			}
 		}
-		// /// 这个存放整体的数值解. 没有分割成 u_h[0], u_h[1] 和 p_h.
-		// AccuracyVx accuracy_vx(viscosity, t);
-		// AccuracyVy accuracy_vy(viscosity, t);
 
 		/// 构建系数矩阵和右端项.
 		Vector<double> x(n_total_dof);
-		// AccuracyVx real_vx(viscosity, t);
-		// AccuracyVy real_vy(viscosity, t);
+		PoiseuilleVx real_vx (-1.0, 1.0);
+		PoiseuilleVy real_vy;
 		// Operator::L2Project(real_vx, v_h[0], Operator::LOCAL_LEAST_SQUARE, 3);
 		// Operator::L2Project(real_vy, v_h[1], Operator::LOCAL_LEAST_SQUARE, 3);
 		
@@ -207,25 +198,25 @@ void ISOP2P1::updateSolution()
 
 			if (bm == 0)
 				continue;
-			/// 对 Dirichelet 边界根据边界分别赋值. 注意同时还要区别 x 和
-			if (bm == 1 || bm == 2 || bm == 4)
-				x(i) = 0.0;
-			if (bm == 3)
-				if (i < n_dof_v)
-				{
-					Regularized regularize;
-					x(i) = regularize.value(fem_space_v.dofInfo(i).interp_point);
-				}
-				else
-					x(i) = 0.0;
-			// if (bm == 1 || bm == 2 || bm == 3 || bm == 4)
+			// /// 方腔流边界条件.
+			// if (bm == 1 || bm == 2 || bm == 4)
+			// 	x(i) = 0.0;
+			// if (bm == 3)
 			// 	if (i < n_dof_v)
-			// 		x(i) = real_vx.value(fem_space_v.dofInfo(i).interp_point);
+			// 	{
+			// 		Regularized regularize;
+			// 		x(i) = regularize.value(fem_space_v.dofInfo(i).interp_point);
+			// 	}
 			// 	else
-			// 		x(i) = real_vy.value(fem_space_v.dofInfo(i - n_dof_v).interp_point);
+			// 		x(i) = 0.0;
+			if (bm == 1 || bm == 2 || bm == 4 || bm == 5)
+				if (i < n_dof_v)
+					x(i) = scale * real_vx.value(fem_space_v.dofInfo(i).interp_point);
+				else
+					x(i) = scale * real_vy.value(fem_space_v.dofInfo(i - n_dof_v).interp_point);
 			/// 右端项这样改, 如果该行和列其余元素均为零, 则在迭代中确
 			/// 保该数值解和边界一致.
-			if (bm == 1 || bm == 2 || bm == 3 || bm == 4)
+			if (bm == 1 || bm == 2 || bm == 4 || bm == 5)
 			{
 				rhs(i) = mat_moving.diag_element(i) * x(i);
 				/// 遍历 i 行.
@@ -263,12 +254,8 @@ void ISOP2P1::updateSolution()
 		dealii::SolverControl solver_control (4000000, l_tol, check);
 
 		SolverMinRes<Vector<double> > minres (solver_control);
-		SolverGMRES<Vector<double> >::AdditionalData para(5000, false, true);
-		SolverGMRES<Vector<double> > gmres (solver_control, para);
-		
-
 		minres.solve (mat_moving, x, rhs, PreconditionIdentity());
-		// gmres.solve(mat_moving, x, rhs, preconditioner);
+
 		t_cost = clock() - t_cost;	
 		std::cout << "time cost: " << (((float)t_cost) / CLOCKS_PER_SEC) << std::endl;
 		for (int i = 0; i < n_dof_v; ++i)
@@ -279,34 +266,45 @@ void ISOP2P1::updateSolution()
 		for (int i = 0; i < n_dof_p; ++i)
 			p_h(i) = x(i + 2 * n_dof_v);
 	
-		// /// debug
-		// std::ofstream mat_deb;
-		// // rowstart = sp_pvx.get_rowstart_indices();
-		// // colnum = sp_pvx.get_column_numbers();
-		// mat_deb.open("mat.m", std::ofstream::out);
-		// mat_deb.setf(std::ios::fixed);
-		// mat_deb.precision(20);
+		/// debug
+		std::ofstream mat_deb;
+		// rowstart = sp_pvx.get_rowstart_indices();
+		// colnum = sp_pvx.get_column_numbers();
+		mat_deb.open("mat.m", std::ofstream::out);
+		mat_deb.setf(std::ios::fixed);
+		mat_deb.precision(20);
 	    
-		// for (int i = 0; i < n_total_dof; ++i)
-		// {
-		// 	for (int j = rowstart[i]; j < rowstart[i + 1]; ++j)
-		// 	{
-		// 		mat_deb << "A(" << i + 1 << ", " << colnum[j] + 1 << ")=" 
-		// 			<< mat_moving.global_entry(j) << ";" << std::endl;
-		// 	}
-		// 	mat_deb << "x(" << i + 1<< ") = " << x(i) << ";" << std::endl;
-		// 	mat_deb << "rhs(" << i + 1 << ") = " << rhs(i) << ";" << std::endl;
-		// }
-		// // for(int i = 0; i < n_dof_p; ++i)
-		// // 	mat_deb << "x(" << i + 1<< ") = " << p_h(i) << ";" << std::endl;
-		// mat_deb.close();
-		// std::cout << "mat output" << std::endl;
+		for (int i = 0; i < n_total_dof; ++i)
+		{
+			for (int j = rowstart[i]; j < rowstart[i + 1]; ++j)
+			{
+				mat_deb << "A(" << i + 1 << ", " << colnum[j] + 1 << ")=" 
+					<< mat_moving.global_entry(j) << ";" << std::endl;
+			}
+			mat_deb << "x(" << i + 1<< ") = " << x(i) << ";" << std::endl;
+			mat_deb << "rhs(" << i + 1 << ") = " << rhs(i) << ";" << std::endl;
+		}
+		// for(int i = 0; i < n_dof_p; ++i)
+		// 	mat_deb << "x(" << i + 1<< ") = " << p_h(i) << ";" << std::endl;
+		mat_deb.close();
+		std::cout << "mat output" << std::endl;
 		Vector<double> res(n_total_dof);
 		mat_moving.vmult(res, x);
 		res *= -1;
 		res += rhs;
 		std::cout << "res_l2norm =" << res.l2_norm() << std::endl;
+		double error;
+		error = Functional::L2Error(v_h[0], real_vx, 3);
+		std::cout << "|| u - u_h ||_L2 = " << error << std::endl;
+
+		error = Functional::H1SemiError(v_h[0], real_vx, 3);
+		std::cout << "|| u - u_h ||_H1 = " << error << std::endl;
+
                 /// debug
+		// // /// 输出一下.
+		outputTecplot("NS_Euler");
+		getchar();
+		
 	}
 }; 
 

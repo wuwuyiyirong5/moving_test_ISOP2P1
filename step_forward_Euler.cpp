@@ -56,7 +56,7 @@ void ISOP2P1::stepForwardEuler()
 		double volume = the_element_v->templateElement().volume();
 		/// 积分精度, u 和 p 都是 1 次, 梯度和散度 u 都是常数. 因此矩阵拼
 		/// 装时积分精度不用超过 1 次. (验证一下!)
-		const QuadratureInfo<DIM>& quad_info = the_element_v->findQuadratureInfo(4);
+		const QuadratureInfo<DIM>& quad_info = the_element_v->findQuadratureInfo(3);
 		std::vector<double> jacobian = the_element_v->local_to_global_jacobian(quad_info.quadraturePoint());
 		int n_quadrature_point = quad_info.n_quadraturePoint();
 		std::vector<Point<DIM> > q_point = the_element_v->local_to_global(quad_info.quadraturePoint());
@@ -101,14 +101,14 @@ void ISOP2P1::stepForwardEuler()
 	/// 这个存放整体的数值解. 没有分割成 u_h[0], u_h[1] 和 p_h.
 	Vector<double> x(n_total_dof);
 
-	for (int i = 0; i < n_dof_v; ++i)
-	{
-		x(i) = v_h[0](i);
-		x(i + n_dof_v) = v_h[1](i);
-	}
+	// for (int i = 0; i < n_dof_v; ++i)
+	// {
+	// 	x(i) = v_h[0](i);
+	// 	x(i + n_dof_v) = v_h[1](i);
+	// }
 
-	for (int i = 0; i < n_dof_p; ++i)
-		x(i + 2 * n_dof_v) = p_h(i);
+	// for (int i = 0; i < n_dof_p; ++i)
+	// 	x(i + 2 * n_dof_v) = p_h(i);
 
 	/// 边界条件一起处理了. 这里需要传递 x 因为 x 是临时的. 这里似乎应
 	/// 该把 v_h, p_h 和 x 统一起来, 避免冗余错误.
@@ -171,9 +171,9 @@ void ISOP2P1::stepForwardEuler()
 	    // RealVy real_Vy;    
 	    // double mean_p_h= Functional::meanValue(p_h, 3); 
 	    // RealP real_P(mean_p_h);
-	    AccuracyVx accuracy_vx(viscosity, t + dt);
-	    AccuracyVy accuracy_vy(viscosity, t + dt);
-
+		PoiseuilleVx accuracy_vx(-1.0, 1.0);
+		PoiseuilleVy accuracy_vy;
+		PoiseuilleP poiseuille_p(0.0, viscosity);
 
 	    FEMSpace<double,2>::ElementIterator the_element_v = fem_space_v.beginElement();
 	    FEMSpace<double,2>::ElementIterator end_element_v = fem_space_v.endElement();
@@ -188,7 +188,7 @@ void ISOP2P1::stepForwardEuler()
 		double volume = the_element_v->templateElement().volume();
 		/// 积分精度, u 和 p 都是 1 次, 梯度和散度 u 都是常数. 因此矩阵拼
 		/// 装时积分精度不用超过 1 次. (验证一下!)
-		const QuadratureInfo<DIM>& quad_info = the_element_v->findQuadratureInfo(1);
+		const QuadratureInfo<DIM>& quad_info = the_element_v->findQuadratureInfo(3);
 		std::vector<double> jacobian 
 		    = the_element_v->local_to_global_jacobian(quad_info.quadraturePoint());
 		int n_quadrature_point = quad_info.n_quadraturePoint();
@@ -221,17 +221,26 @@ void ISOP2P1::stepForwardEuler()
 	    L2_err = sqrt(L2_err);
 
 	    double error;
-	    error = Functional::L2Error(v_h[0], accuracy_vx, 2);
+	    error = Functional::L2Error(v_h[0], accuracy_vx, 3);
 	    std::cout << "|| u - u_h ||_L2 = " << error << std::endl;
 
-	    error = Functional::H1SemiError(v_h[0], accuracy_vx, 1);
+	    error = Functional::H1SemiError(v_h[0], accuracy_vx, 3);
 	    std::cout << "|| u - u_h ||_H1 = " << error << std::endl;
+	    error = Functional::L2Error(p_h, poiseuille_p, 3);
+	    std::cout << "|| p - p_h ||_L2 = " << error << std::endl;
+
 	    std::cout << "uh_L2err() = " << L2_err << std::endl;
 	    std::cout << "uh_H1err() = " << H1_err << std::endl;	
 	    output << "uh_L2err(1) = " << L2_err << std::endl;
 	    output << "uh_H1err(1) = " << H1_err << std::endl;	
 	}
 	output.close();
+	double mean_p_h = Functional::meanValue(p_h, 3);
+	FEMFunction<double, DIM> _p_h(p_h);
+	mean_p_h = -mean_p_h;
+	_p_h.add(mean_p_h);
+	std::cout << "|| p - mean_p_h ||_L2 = " << _p_h.l2_norm() << std::endl;
+	
 };
 
 #undef DIM

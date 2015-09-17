@@ -57,99 +57,99 @@ void ISOP2P1::solveStokes()
 	output << "np = " << n_dof_p << std::endl;
 	output << "steps = " << solver_control.last_step() << std::endl;
 	output << "linear tol = " << l_tol << std::endl;
-	if (error_check == true)
-	{
-		// RealVx real_Vx;
-		// RealVy real_Vy;    
-		// double mean_p_h= Functional::meanValue(p_h, 3); 
-		// RealP real_P(mean_p_h);
-		AccuracyVx accuracy_vx(viscosity, t + dt);
-		AccuracyVy accuracy_vy(viscosity, t + dt);
+	// if (error_check == true)
+	// {
+	// 	// RealVx real_Vx;
+	// 	// RealVy real_Vy;    
+	// 	// double mean_p_h= Functional::meanValue(p_h, 3); 
+	// 	// RealP real_P(mean_p_h);
+	// 	AccuracyVx accuracy_vx(viscosity, t + dt);
+	// 	AccuracyVy accuracy_vy(viscosity, t + dt);
 
 
-		FEMSpace<double,2>::ElementIterator the_element_v = fem_space_v.beginElement();
-		FEMSpace<double,2>::ElementIterator end_element_v = fem_space_v.endElement();
-		/// 误差.
-		double H1_err = 0.0;
-		double L2_err = 0.0;
+	// 	FEMSpace<double,2>::ElementIterator the_element_v = fem_space_v.beginElement();
+	// 	FEMSpace<double,2>::ElementIterator end_element_v = fem_space_v.endElement();
+	// 	/// 误差.
+	// 	double H1_err = 0.0;
+	// 	double L2_err = 0.0;
 
-		/// 遍历速度单元, 拼装相关系数矩阵和右端项.
-		for (; the_element_v != end_element_v; ++the_element_v) 
-		{
-			/// 当前单元信息.
-			double volume = the_element_v->templateElement().volume();
-			/// 积分精度, u 和 p 都是 1 次, 梯度和散度 u 都是常数. 因此矩阵拼
-			/// 装时积分精度不用超过 1 次. (验证一下!)
-			const QuadratureInfo<DIM>& quad_info = the_element_v->findQuadratureInfo(1);
-			std::vector<double> jacobian 
-				= the_element_v->local_to_global_jacobian(quad_info.quadraturePoint());
-			int n_quadrature_point = quad_info.n_quadraturePoint();
-			std::vector<Point<DIM> > q_point 
-				= the_element_v->local_to_global(quad_info.quadraturePoint());
-			/// 速度信息.
-			std::vector<double> vx_value = v_h[0].value(q_point, *the_element_v);
-			std::vector<double> vy_value = v_h[1].value(q_point, *the_element_v);
-			std::vector<std::vector<double> > vx_gradient = v_h[0].gradient(q_point, *the_element_v);
-			std::vector<std::vector<double> > vy_gradient = v_h[1].gradient(q_point, *the_element_v);
-			/// 实际拼装.
-			for (int l = 0; l < n_quadrature_point; ++l)
-			{
-				double Jxw = quad_info.weight(l) * jacobian[l] * volume;
-				double dx_value = vx_value[l] - accuracy_vx.value(q_point[l]);
-				double dy_value = vy_value[l] - accuracy_vy.value(q_point[l]);
-				L2_err += Jxw * (dx_value * dx_value + dy_value * dy_value);
-				std::vector<double> real_vx_gradient = accuracy_vx.gradient(q_point[l]);
-				std::vector<double> real_vy_gradient = accuracy_vy.gradient(q_point[l]);
+	// 	/// 遍历速度单元, 拼装相关系数矩阵和右端项.
+	// 	for (; the_element_v != end_element_v; ++the_element_v) 
+	// 	{
+	// 		/// 当前单元信息.
+	// 		double volume = the_element_v->templateElement().volume();
+	// 		/// 积分精度, u 和 p 都是 1 次, 梯度和散度 u 都是常数. 因此矩阵拼
+	// 		/// 装时积分精度不用超过 1 次. (验证一下!)
+	// 		const QuadratureInfo<DIM>& quad_info = the_element_v->findQuadratureInfo(1);
+	// 		std::vector<double> jacobian 
+	// 			= the_element_v->local_to_global_jacobian(quad_info.quadraturePoint());
+	// 		int n_quadrature_point = quad_info.n_quadraturePoint();
+	// 		std::vector<Point<DIM> > q_point 
+	// 			= the_element_v->local_to_global(quad_info.quadraturePoint());
+	// 		/// 速度信息.
+	// 		std::vector<double> vx_value = v_h[0].value(q_point, *the_element_v);
+	// 		std::vector<double> vy_value = v_h[1].value(q_point, *the_element_v);
+	// 		std::vector<std::vector<double> > vx_gradient = v_h[0].gradient(q_point, *the_element_v);
+	// 		std::vector<std::vector<double> > vy_gradient = v_h[1].gradient(q_point, *the_element_v);
+	// 		/// 实际拼装.
+	// 		for (int l = 0; l < n_quadrature_point; ++l)
+	// 		{
+	// 			double Jxw = quad_info.weight(l) * jacobian[l] * volume;
+	// 			double dx_value = vx_value[l] - accuracy_vx.value(q_point[l]);
+	// 			double dy_value = vy_value[l] - accuracy_vy.value(q_point[l]);
+	// 			L2_err += Jxw * (dx_value * dx_value + dy_value * dy_value);
+	// 			std::vector<double> real_vx_gradient = accuracy_vx.gradient(q_point[l]);
+	// 			std::vector<double> real_vy_gradient = accuracy_vy.gradient(q_point[l]);
 
-				for (int i = 0; i < DIM; ++i)
-				{
-					dx_value = vx_gradient[l][i] - real_vx_gradient[i];
-					dy_value = vy_gradient[l][i] - real_vy_gradient[i];
-					H1_err += Jxw * (dx_value * dx_value + dy_value * dy_value); 
-				}
-			}
-		}
-		H1_err = sqrt(H1_err);
-		L2_err = sqrt(L2_err);
+	// 			for (int i = 0; i < DIM; ++i)
+	// 			{
+	// 				dx_value = vx_gradient[l][i] - real_vx_gradient[i];
+	// 				dy_value = vy_gradient[l][i] - real_vy_gradient[i];
+	// 				H1_err += Jxw * (dx_value * dx_value + dy_value * dy_value); 
+	// 			}
+	// 		}
+	// 	}
+	// 	H1_err = sqrt(H1_err);
+	// 	L2_err = sqrt(L2_err);
 
-		double error;
+	// 	double error;
 
-		error = Functional::L2Error(v_h[0], accuracy_vx, 2);
-		std::cout << "|| u - u_h ||_L2 = " << error << std::endl;
-		// output << "|| u - u_h ||_L2 = " << error << std::endl;
+	// 	error = Functional::L2Error(v_h[0], accuracy_vx, 2);
+	// 	std::cout << "|| u - u_h ||_L2 = " << error << std::endl;
+	// 	// output << "|| u - u_h ||_L2 = " << error << std::endl;
 
-		error = Functional::H1SemiError(v_h[0], accuracy_vx, 1);
-		std::cout << "|| u - u_h ||_H1 = " << error << std::endl;
-		// error = Functional::L2Error(v_h[0], real_Vx, 2);
-		// std::cout << "|| u - u_h ||_L2 = " << error << std::endl;
-		// // output << "|| u - u_h ||_L2 = " << error << std::endl;
+	// 	error = Functional::H1SemiError(v_h[0], accuracy_vx, 1);
+	// 	std::cout << "|| u - u_h ||_H1 = " << error << std::endl;
+	// 	// error = Functional::L2Error(v_h[0], real_Vx, 2);
+	// 	// std::cout << "|| u - u_h ||_L2 = " << error << std::endl;
+	// 	// // output << "|| u - u_h ||_L2 = " << error << std::endl;
 
-		// error = Functional::H1SemiError(v_h[0], real_Vy, 1);
-		// std::cout << "|| u - u_h ||_H1 = " << error << std::endl;
-		// output << "|| u - u_h ||_H1 = " << error << std::endl;
+	// 	// error = Functional::H1SemiError(v_h[0], real_Vy, 1);
+	// 	// std::cout << "|| u - u_h ||_H1 = " << error << std::endl;
+	// 	// output << "|| u - u_h ||_H1 = " << error << std::endl;
 
-		// error = Functional::H1SemiError(p_h, real_P, 1);
-		// std::cout << "|| p - p_h ||_H1 = " << error << std::endl;
-		// // output << "ph_H1err(1) = " << error << std::endl;
+	// 	// error = Functional::H1SemiError(p_h, real_P, 1);
+	// 	// std::cout << "|| p - p_h ||_H1 = " << error << std::endl;
+	// 	// // output << "ph_H1err(1) = " << error << std::endl;
 
-		// error = Functional::H1SemiError(p_h_refine, real_P, 1);
-		// std::cout << "|| p - p_h_refine ||_H1 = " << error << std::endl;
-		// output << "ph_refine_H1err(1) = " << error << std::endl;
+	// 	// error = Functional::H1SemiError(p_h_refine, real_P, 1);
+	// 	// std::cout << "|| p - p_h_refine ||_H1 = " << error << std::endl;
+	// 	// output << "ph_refine_H1err(1) = " << error << std::endl;
 
-		// error = Functional::L2Error(p_h, real_P, 2);
-		// std::cout << "|| p - p_h ||_L^2 = " << error << std::endl;
-		// // output << "ph_L2err(1) = " << error << std::endl;
+	// 	// error = Functional::L2Error(p_h, real_P, 2);
+	// 	// std::cout << "|| p - p_h ||_L^2 = " << error << std::endl;
+	// 	// // output << "ph_L2err(1) = " << error << std::endl;
 
-		// error = Functional::L2Error(p_h_refine, real_P, 2);
-		// std::cout << "|| p - p_h_refine ||_L^2 = " << error << std::endl;
-		// output << "ph_refine_L2err(1) = " << error << std::endl;
+	// 	// error = Functional::L2Error(p_h_refine, real_P, 2);
+	// 	// std::cout << "|| p - p_h_refine ||_L^2 = " << error << std::endl;
+	// 	// output << "ph_refine_L2err(1) = " << error << std::endl;
 
-		std::cout << "uh_L2err() = " << L2_err << std::endl;
-		std::cout << "uh_H1err() = " << H1_err << std::endl;	
-		output << "uh_L2err(1) = " << L2_err << std::endl;
-		output << "uh_H1err(1) = " << H1_err << std::endl;	
-	}
-	output.close();
+	// 	std::cout << "uh_L2err() = " << L2_err << std::endl;
+	// 	std::cout << "uh_H1err() = " << H1_err << std::endl;	
+	// 	output << "uh_L2err(1) = " << L2_err << std::endl;
+	// 	output << "uh_H1err(1) = " << H1_err << std::endl;	
+	// }
+	// output.close();
 };
 
 void ISOP2P1::solveNS(int method)

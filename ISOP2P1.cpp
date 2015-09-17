@@ -37,68 +37,85 @@ void ISOP2P1::run()
 		double scale_step = 0.2;
 		scale = scale_step;
 		do {
-			v_h[0].reinit(fem_space_v);
-			v_h[1].reinit(fem_space_v);
-			p_h.reinit(fem_space_p);
-			buildMatrix();
-			// stepForwardEuler();
-			solveStokes();
+			PoiseuilleVx poiseuille_vx(-1.0, 1.0);
+			PoiseuilleVy poiseuille_vy;
+			Operator::L2Project(poiseuille_vx, v_h[0], Operator::LOCAL_LEAST_SQUARE, 3);
+			Operator::L2Project(poiseuille_vy, v_h[1], Operator::LOCAL_LEAST_SQUARE, 3);
+
+			// buildMatrix();
+			// // stepForwardEuler();
+			// solveStokes();
 			v_h[0].scale(scale);
 			v_h[1].scale(scale);
 			movingMesh();
 			std::cout << "\r\tscale = " << scale << std::endl;
 			scale += scale_step;
 		} while (scale <= 1.0);
+		/// 重新设置scale 为1.0.
+		scale = 1.0;
 	}
+	PoiseuilleVx poiseuille_vx(-1.0, 1.0);
+	PoiseuilleVy poiseuille_vy;
+	Operator::L2Project(poiseuille_vx, v_h[0], Operator::LOCAL_LEAST_SQUARE, 3);
+	Operator::L2Project(poiseuille_vy, v_h[1], Operator::LOCAL_LEAST_SQUARE, 3);
 	outputSolution();
-	v_h[0].reinit(fem_space_v);
-	v_h[1].reinit(fem_space_v);
-	p_h.reinit(fem_space_p);
-	solveStokes();
+	// v_h[0].reinit(fem_space_v);
+	// v_h[1].reinit(fem_space_v);
+	// p_h.reinit(fem_space_p);
+	// solveStokes();
 	outputTecplotP("P0");
 	outputTecplot("initial_value0");
 	getchar();
 
-	int steps = 0;
+	int steps_before = 0;
+	int steps_after = 0;
 	bool isOutput = false;
 
 	while (t < t1)
 	{
 		/// 准备每步输出一个 tecplot 数据, 注意别把硬盘写爆了!
-		std::stringstream ss;
-		ss << "NS_Euler";
+		std::stringstream ss_before;
+		ss_before << "NS_Euler";
+		std::stringstream ss_after;
+		ss_after << "NS_Euler_updateSol";
 
 		if (scheme == 1)
 		{
 			if(isMoving == 1)
 				buildMatrix();
 			stepForwardEuler();
-			time_step();
 		}
 		else if (scheme == 2)
 			stepForwardLinearizedEuler();
 		else
 			break;
+		/// 获取时间步长.
+		time_step();
 		t += dt;
+		steps_before++;
+		ss_before << steps_before;
+		outputTecplot(ss_before.str());
+		std::cout << "Data outputed!" << std::endl;
+		
 		/// 网格移动.
 		if (isMoving == 1)
 			movingMesh();
 		/// 输出.
-		if (isOutput)
-		{
-			steps++;
-			ss << steps;
-			outputTecplot(ss.str());
-			std::cout << "Data outputed!" << std::endl;
-			isOutput = false;
-		}
-		double t_stop = int((t / 0.01) + 0.5) * 0.01;
-		if (t > t_stop - dt && t < t_stop + dt)
-		{
-			t = t_stop;
-			isOutput = true;
-		}
-		std::cout << "t = " << t << std::endl;
+		// if (isOutput)
+		// {
+		steps_after++;
+		ss_after << steps_after;
+		outputTecplot(ss_after.str());
+		std::cout << "Data outputed!" << std::endl;
+		// 	isOutput = false;
+		// }
+		// double t_stop = int((t / 0.01) + 0.5) * 0.01;
+		// if (t > t_stop - dt && t < t_stop + dt)
+		// {
+		// 	t = t_stop;
+		// 	isOutput = true;
+		// }
+		// std::cout << "t = " << t << std::endl;
 	}
 
 }

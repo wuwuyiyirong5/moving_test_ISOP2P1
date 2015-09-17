@@ -29,22 +29,37 @@ void ISOP2P1::boundaryValueStokes(Vector<double> &x)
 			continue;
 		/// 对 Dirichelet 边界根据边界分别赋值. 注意同时还要区别 x 和
 
-		/// 方腔流边界条件.
-		if (bm == 1 || bm == 2 || bm == 5 || bm == 4)
-			x(i) = 0.0;
-		else if (bm == 3)
+		// /// 方腔流边界条件.
+		// if (bm == 1 || bm == 2 || bm == 4)
+		// 	x(i) = 0.0;
+		// else if (bm == 3)
+		// 	if (i < n_dof_v)
+		// 	{
+		// 		Regularized regular;
+		// 		x(i) = regular.value(fem_space_v.dofInfo(i).interp_point);
+		// 	}
+		// 	else
+		// 	{
+		// 		x(i) = 0.0;
+		// 	}
+
+		/// step flow 边界条件设置
+		if (bm == 1 || bm == 2 || bm == 4 || bm == 5)
 			if (i < n_dof_v)
 			{
-				Regularized regular;
-				x(i) = regular.value(fem_space_v.dofInfo(i).interp_point);
+				PoiseuilleVx poiseuille_vx(-1.0, 1.0);
+				x(i) = poiseuille_vx.value(fem_space_v.dofInfo(i).interp_point);
 			}
 			else
 			{
-				x(i) = 0.0;
+				PoiseuilleVy poiseuille_vy;
+				x(i) = poiseuille_vy.value(fem_space_v.dofInfo(i - n_dof_v).interp_point);
 			}
+		
 		/// 右端项这样改, 如果该行和列其余元素均为零, 则在迭代中确
 		/// 保该数值解和边界一致.
-		if (bm == 1 || bm == 2 || bm == 3 || bm == 4 || bm == 5)
+		if (bm == 1 || bm == 2 || bm == 4 || bm == 5)
+		// if (bm == 1 || bm == 2 || bm == 3 || bm == 4)
 		{
 			rhs(i) = matrix.diag_element(i) * x(i);
 			/// 遍历 i 行.

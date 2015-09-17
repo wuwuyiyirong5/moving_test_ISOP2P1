@@ -55,9 +55,9 @@ void ISOP2P1::time_step()
     }
     /// 时间步长满足CFL条件.
     if (t < 1)
-    	dt = 0.1 * min_v_norm;
+    	dt = 0.3 * min_v_norm;
     else
-	dt = 0.1 * min_v_norm;
+	dt = 0.5 * min_v_norm;
     std::cout<< "dt = " << dt << std::endl;
 };
 

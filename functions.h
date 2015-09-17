@@ -159,7 +159,7 @@ PoiseuilleVx(double _y0, double _y1) : y0(_y0), y1(_y1)
 public:
 	double value(const double *p) const
 	{
-		return   (1.0 - (p[1] - c) * (p[1] - c)  / (v * v));
+		return   (1.0 - (p[1] - c) * (p[1] - c));
 	};
 	std::vector<double> gradient(const double *p) const
 	{
@@ -195,20 +195,21 @@ class PoiseuilleP : public Function<double>
 {
 private:
 	double average;
+	double nu;
 public:
-PoiseuilleP(double _a) : average(_a)
+PoiseuilleP(double _a, double _nu) : average(_a), nu(_nu)
 	{};
 	~PoiseuilleP() 
 	{};
 public:
 	double value(const double *p) const
 	{
-		return -2.0 * p[0] + average;
+		return -2.0 * nu * p[0] + average;
 	};
 	std::vector<double> gradient(const double *p) const
 	{
 		std::vector<double> result(2);
-		result[0] = -2.0;
+		result[0] = -2.0 * nu;
 		result[1] = 0.0;
 		return result;
 	};
