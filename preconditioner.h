@@ -20,6 +20,8 @@ class StokesPreconditioner
 private:
 	const SparseMatrix<double> *Ax; /**< 预处理矩阵各分块. */
 	const SparseMatrix<double> *Ay;
+	AMGSolver AMGx;
+	AMGSolver AMGy;
 	const SparseMatrix<double> *Q;
 
 public:

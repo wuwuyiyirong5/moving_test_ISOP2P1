@@ -6,33 +6,33 @@
 
 void ISOP2P1::syncMesh()
 {
-    int n_point = this->n_point();
+	int n_point = this->n_point();
 
-    RegularMesh<DIM> &mesh_v = irregular_mesh_v->regularMesh();
-    RegularMesh<DIM> &mesh_p = irregular_mesh_p->regularMesh();
+	RegularMesh<DIM> &mesh_v = irregular_mesh_v->regularMesh();
+	RegularMesh<DIM> &mesh_p = irregular_mesh_p->regularMesh();
 
-    for (int i = 0; i < mesh_p.n_geometry(0); ++i)
-    {
-    	(*mesh_p.h_geometry<0>(i))[0] = this->point(i)[0];
-    	(*mesh_p.h_geometry<0>(i))[1] = this->point(i)[1];
-    }
+	for (int i = 0; i < mesh_p.n_geometry(0); ++i)
+	{
+		(*mesh_p.h_geometry<0>(i))[0] = this->point(i)[0];
+		(*mesh_p.h_geometry<0>(i))[1] = this->point(i)[1];
+	}
 
-    /// 更新p网格的中点. 学习这个过程, 似乎可以去掉单元对应? 
-    for (int j = 0; j < mesh_p.n_geometry(1); ++j)
-    {
-    	GeometryBM &bnd = mesh_p.geometry(1, j);
-    	(*mesh_p.h_geometry<1>(bnd.index())->child[1]->vertex[0])[0]
-    	    = 0.5 * ((*mesh_p.h_geometry<0>(bnd.vertex(0)))[0] + 
-    		     (*mesh_p.h_geometry<0>(bnd.vertex(1)))[0]);
-    	(*mesh_p.h_geometry<1>(bnd.index())->child[1]->vertex[0])[1]
-    	    = 0.5 * ((*mesh_p.h_geometry<0>(bnd.vertex(0)))[1] + 
-    		     (*mesh_p.h_geometry<0>(bnd.vertex(1)))[1]);
-    }
+	/// 更新p网格的中点. 学习这个过程, 似乎可以去掉单元对应? 
+	for (int j = 0; j < mesh_p.n_geometry(1); ++j)
+	{
+		GeometryBM &bnd = mesh_p.geometry(1, j);
+		(*mesh_p.h_geometry<1>(bnd.index())->child[1]->vertex[0])[0]
+			= 0.5 * ((*mesh_p.h_geometry<0>(bnd.vertex(0)))[0] + 
+				 (*mesh_p.h_geometry<0>(bnd.vertex(1)))[0]);
+		(*mesh_p.h_geometry<1>(bnd.index())->child[1]->vertex[0])[1]
+			= 0.5 * ((*mesh_p.h_geometry<0>(bnd.vertex(0)))[1] + 
+				 (*mesh_p.h_geometry<0>(bnd.vertex(1)))[1]);
+	}
 
-    irregular_mesh_p->semiregularize();
-    irregular_mesh_p->regularize(false);
-    irregular_mesh_v->semiregularize();
-    irregular_mesh_v->regularize(false);
+	irregular_mesh_p->semiregularize();
+	irregular_mesh_p->regularize(false);
+	irregular_mesh_v->semiregularize();
+	irregular_mesh_v->regularize(false);
 };
 
 void ISOP2P1::getMonitor()
@@ -209,6 +209,7 @@ void ISOP2P1::updateSolution()
 			// 	}
 			// 	else
 			// 		x(i) = 0.0;
+			/// poiseuille flow边界条件.
 			if (bm == 1 || bm == 2 || bm == 4 || bm == 5)
 				if (i < n_dof_v)
 					x(i) = scale * real_vx.value(fem_space_v.dofInfo(i).interp_point);
@@ -302,7 +303,7 @@ void ISOP2P1::updateSolution()
 
                 /// debug
 		// // /// 输出一下.
-		outputTecplot("NS_Euler");
+		outputTecplotP("NS_Euler");
 		getchar();
 		
 	}

@@ -50,15 +50,13 @@ void StokesPreconditioner::initialize (const SparseMatrix<double> &_stiff_vx,
 	Ax = &_stiff_vx;
 	Ay = &_stiff_vy;
 	Q = &_mass_p_diag;
-
-
+	AMGx.reinit(*Ax);
+	AMGy.reinit(*Ax);
 };
 
 void StokesPreconditioner::vmult (Vector<double> &dst,
 		const Vector<double> &src) const
 {
-
-
 	int n_dof_v = Ax->n();
 	int n_dof_p = Q->n();
 	Vector<double> d0(n_dof_v);
@@ -73,11 +71,9 @@ void StokesPreconditioner::vmult (Vector<double> &dst,
 	for (int i = 0; i < n_dof_p; ++i)
 		dst(2 * n_dof_v + i) = src(2 * n_dof_v + i) / (*Q).diag_element(i);
 
-	AMGSolver solver0(*Ax);
-	solver0.solve(d0, s0, 1e-8, 1, 1);
+	AMGx.solve(d0, s0, 1e-8, 1, 1);
 
-	AMGSolver solver1(*Ay);
-	solver0.solve(d1, s1, 1e-8, 1, 1);
+	AMGy.solve(d1, s1, 1e-8, 1, 1);
 
 	for (int i = 0; i < n_dof_v; ++i)
 		dst(i) = d0(i);
