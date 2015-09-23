@@ -1,6 +1,7 @@
 #include "ISOP2P1.h"
 #include "preconditioner.h"
 #include "functions.h"
+#include <time.h>
 
 #define DIM 2
 
@@ -96,12 +97,12 @@ void ISOP2P1::updateSolution()
 	buildMatrixStruct();
 	buildMatrix();
 	/// 因为网格移动量为小量, 因此时间步长可以相对取的大些.
-	double _dt = 1.0;
+	double _dt = 0.1;
     
 	int n_dof_v = fem_space_v.n_dof();
 	int n_dof_p = fem_space_p.n_dof();
-	int n_total_dof = 2 * n_dof_v + n_dof_p;
-	int n_total_dof_v = 2 * n_dof_v;
+	int n_total_dof = DIM * n_dof_v + n_dof_p;
+	int n_total_dof_v = DIM * n_dof_v;
 	
 	/// 一步Euler.
 	for (int m = 1; m > 0; --m)
@@ -133,7 +134,8 @@ void ISOP2P1::updateSolution()
 			mat_moving.global_entry(index_vyp[i]) = (1.0 / m) * mat_vyp_div.global_entry(i);
 
 		/// 问题的右端项.
-		rhs.reinit(n_total_dof);
+		Vector<double> rhs_loc(n_total_dof);
+//		rhs.reinit(n_total_dof);
 		FEMSpace<double, DIM>::ElementIterator the_element_v = fem_space_v.beginElement();
 		FEMSpace<double, DIM>::ElementIterator end_element_v = fem_space_v.endElement();
 		/// 遍历速度单元, 拼装相关系数矩阵和右端项.
@@ -165,19 +167,19 @@ void ISOP2P1::updateSolution()
 				{
 					double rhs_cont = (vx_value[l] + (1.0 / m) * msl * innerProduct(move_vector[l], vx_gradient[l])) * basis_value_v[i][l];
 					rhs_cont *= Jxw;
-					rhs(element_dof_v[i]) += rhs_cont;
+					rhs_loc(element_dof_v[i]) += rhs_cont;
 
 					rhs_cont = (vy_value[l] + (1.0 / m) * msl * innerProduct(move_vector[l], vy_gradient[l])) * basis_value_v[i][l];
 					rhs_cont *= Jxw;
-					rhs(n_dof_v + element_dof_v[i]) += rhs_cont;
+					rhs_loc(n_dof_v + element_dof_v[i]) += rhs_cont;
 				}
 			}
 		}
 
 		/// 构建系数矩阵和右端项.
 		Vector<double> x(n_total_dof);
-		PoiseuilleVx real_vx (-1.0, 1.0);
-		PoiseuilleVy real_vy;
+//		PoiseuilleVx real_vx (-1.0, 1.0);
+//		PoiseuilleVy real_vy;
 		// Operator::L2Project(real_vx, v_h[0], Operator::LOCAL_LEAST_SQUARE, 3);
 		// Operator::L2Project(real_vy, v_h[1], Operator::LOCAL_LEAST_SQUARE, 3);
 		
@@ -222,7 +224,7 @@ void ISOP2P1::updateSolution()
 			if (bm == 1 || bm == 2 || bm == 3 || bm == 4 || bm == 5)
 				// if (bm == 1 || bm == 2 || bm == 4 || bm == 5)
 			{
-				rhs(i) = mat_moving.diag_element(i) * x(i);
+				rhs_loc(i) = mat_moving.diag_element(i) * x(i);
 				/// 遍历 i 行.
 				for (unsigned int j = rowstart[i] + 1; j < rowstart[i + 1]; ++j)
 				{
@@ -240,7 +242,7 @@ void ISOP2P1::updateSolution()
 						/// 计算 k 行 i 列的存储位置.
 						unsigned int l = p - &colnum[rowstart[0]];
 						/// 移动到右端项. 等价于 r(k) = r(k) - x(i) * A(k, i).
-						rhs(k) -= mat_moving.global_entry(l) * x(i);
+						rhs_loc(k) -= mat_moving.global_entry(l) * x(i);
 						/// 移完此项自然是零.
 						mat_moving.global_entry(l) -= mat_moving.global_entry(l);
 					}
@@ -273,7 +275,7 @@ void ISOP2P1::updateSolution()
 		dealii::SolverControl solver_control (4000000, l_tol, check);
 
 		SolverMinRes<Vector<double> > minres (solver_control);
-		minres.solve (mat_moving, x, rhs, PreconditionIdentity());
+		minres.solve (mat_moving, x, rhs_loc, PreconditionIdentity());
 
 		t_cost = clock() - t_cost;	
 		std::cout << "time cost: " << (((float)t_cost) / CLOCKS_PER_SEC) << std::endl;
@@ -301,7 +303,7 @@ void ISOP2P1::updateSolution()
 					<< mat_moving.global_entry(j) << ";" << std::endl;
 			}
 			mat_deb << "x(" << i + 1<< ") = " << x(i) << ";" << std::endl;
-			mat_deb << "rhs(" << i + 1 << ") = " << rhs(i) << ";" << std::endl;
+			mat_deb << "rhs(" << i + 1 << ") = " << rhs_loc(i) << ";" << std::endl;
 		}
 		// for(int i = 0; i < n_dof_p; ++i)
 		// 	mat_deb << "x(" << i + 1<< ") = " << p_h(i) << ";" << std::endl;
@@ -310,7 +312,7 @@ void ISOP2P1::updateSolution()
 		Vector<double> res(n_total_dof);
 		mat_moving.vmult(res, x);
 		res *= -1;
-		res += rhs;
+		res += rhs_loc;
 		std::cout << "res_l2norm =" << res.l2_norm() << std::endl;
 		// double error;
 		// error = Functional::L2Error(v_h[0], real_vx, 3);
@@ -319,7 +321,7 @@ void ISOP2P1::updateSolution()
 		// error = Functional::H1SemiError(v_h[0], real_vx, 3);
 		// std::cout << "|| u - u_h ||_H1 = " << error << std::endl;
 
-                // /// debug
+        /// debug
 		RegularMesh<DIM> &mesh_p = irregular_mesh_p->regularMesh();
 
 		for (int i = 0; i < mesh_p.n_geometry(0); ++i)
