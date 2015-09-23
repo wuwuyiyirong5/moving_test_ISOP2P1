@@ -67,7 +67,7 @@ void ISOP2P1::getMonitor()
 			double Jxw = quad_info.weight(l) * jacobian[l] * volume;
 			area += Jxw;
 			norm += u_h_value[l] * u_h_value[l] + v_h_value[l] * v_h_value[l];
-			d += Jxw * (innerProduct(u_h_gradient[l], u_h_gradient[l]) + innerProduct(v_h_gradient[l], v_h_gradient[l]));
+			d += Jxw * (innerProduct(u_h_gradient[l], u_h_gradient[l]));
 		}
 		norm = 1.0 / (eps + sqrt(norm));
 		monitor(i++) = d / area;
@@ -78,12 +78,12 @@ void ISOP2P1::getMonitor()
 	double max_monitor = *std::max_element(monitor().begin(), monitor().end());
 	smoothMonitor(2);
 	for (int i = 0; i < n_geometry(2); ++i)
-		monitor(i) = 1.0 / sqrt(1.0 + alpha * monitor(i) * monitor(i));
+		monitor(i) = 1.0 / sqrt(1.0 + alpha * monitor(i));
 };
 
 void ISOP2P1::updateSolution()
 {
-	// /// 更新插值点.
+	/// 更新插值点.
 	fem_space_p.updateDofInterpPoint();
 	fem_space_v.updateDofInterpPoint();
 	
@@ -143,7 +143,7 @@ void ISOP2P1::updateSolution()
 			/// 当前单元信息.
 			double volume = the_element_v->templateElement().volume();
 			/// 积分精度至少为2.
-			const QuadratureInfo<DIM>& quad_info = the_element_v->findQuadratureInfo(3);
+			const QuadratureInfo<DIM>& quad_info = the_element_v->findQuadratureInfo(4);
 			std::vector<double> jacobian = the_element_v->local_to_global_jacobian(quad_info.quadraturePoint());
 			int n_quadrature_point = quad_info.n_quadraturePoint();
 			std::vector<Point<DIM> > q_point = the_element_v->local_to_global(quad_info.quadraturePoint());
@@ -198,26 +198,29 @@ void ISOP2P1::updateSolution()
 
 			if (bm == 0)
 				continue;
-			// /// 方腔流边界条件.
-			// if (bm == 1 || bm == 2 || bm == 4)
-			// 	x(i) = 0.0;
-			// if (bm == 3)
-			// 	if (i < n_dof_v)
-			// 	{
-			// 		Regularized regularize;
-			// 		x(i) = regularize.value(fem_space_v.dofInfo(i).interp_point);
-			// 	}
-			// 	else
-			// 		x(i) = 0.0;
-			/// poiseuille flow边界条件.
+			/// 方腔流边界条件.
 			if (bm == 1 || bm == 2 || bm == 4 || bm == 5)
+				x(i) = 0.0;
+			if (bm == 3)
 				if (i < n_dof_v)
-					x(i) = scale * real_vx.value(fem_space_v.dofInfo(i).interp_point);
+				{
+					/// 不包括顶端的两个端点,称为watertight cavity.
+					// x(i) = scale * 1.0;
+					Regularized regularize;
+					x(i) = scale * regularize.value(fem_space_v.dofInfo(i).interp_point);
+				}
 				else
-					x(i) = scale * real_vy.value(fem_space_v.dofInfo(i - n_dof_v).interp_point);
+					x(i) = 0.0;
+			// /// poiseuille flow边界条件.
+			// if (bm == 1 || bm == 2 || bm == 4 || bm == 5)
+			// 	if (i < n_dof_v)
+			// 		x(i) = scale * real_vx.value(fem_space_v.dofInfo(i).interp_point);
+			// 	else
+			// 		x(i) = scale * real_vy.value(fem_space_v.dofInfo(i - n_dof_v).interp_point);
 			/// 右端项这样改, 如果该行和列其余元素均为零, 则在迭代中确
 			/// 保该数值解和边界一致.
-			if (bm == 1 || bm == 2 || bm == 4 || bm == 5)
+			if (bm == 1 || bm == 2 || bm == 3 || bm == 4 || bm == 5)
+				// if (bm == 1 || bm == 2 || bm == 4 || bm == 5)
 			{
 				rhs(i) = mat_moving.diag_element(i) * x(i);
 				/// 遍历 i 行.
@@ -245,6 +248,21 @@ void ISOP2P1::updateSolution()
 			}
 		}
 		std::cout << "boundary values for updateSolution OK!" << std::endl;
+		
+		// /// debug 边界条件处理部分,已经测试过, 边界处理正确.
+		// RegularMesh<DIM> &mesh_v = irregular_mesh_v->regularMesh();
+		// for (int i = 0; i < mesh_v.n_geometry(0); ++i)
+		// {
+		// 	Point<DIM> &p= mesh_v.point(i);
+		// 	if (fabs(1 - p[1]) < eps || fabs(1 - p[0]) < eps || fabs(-1 - p[1]) < eps || fabs(-1 - p[0]) < eps)
+		// 	{
+		// 		std::cout << "point(" << i << ") = (" << p[0] << "," << p[1] << ");" << std::endl;
+		// 		std::cout << "uh(" << i << ") = " << v_h[0](i) << std::endl;
+		// 		std::cout << "vh(" << i << ") = " << v_h[1](i) << std::endl;
+		// 	}
+		// }
+		// getchar();
+		// /// debug
 
 		clock_t t_cost = clock();
 		/// 预处理矩阵.
@@ -294,18 +312,25 @@ void ISOP2P1::updateSolution()
 		res *= -1;
 		res += rhs;
 		std::cout << "res_l2norm =" << res.l2_norm() << std::endl;
-		double error;
-		error = Functional::L2Error(v_h[0], real_vx, 3);
-		std::cout << "|| u - u_h ||_L2 = " << error << std::endl;
+		// double error;
+		// error = Functional::L2Error(v_h[0], real_vx, 3);
+		// std::cout << "|| u - u_h ||_L2 = " << error << std::endl;
 
-		error = Functional::H1SemiError(v_h[0], real_vx, 3);
-		std::cout << "|| u - u_h ||_H1 = " << error << std::endl;
+		// error = Functional::H1SemiError(v_h[0], real_vx, 3);
+		// std::cout << "|| u - u_h ||_H1 = " << error << std::endl;
 
-                /// debug
-		// // /// 输出一下.
+                // /// debug
+		RegularMesh<DIM> &mesh_p = irregular_mesh_p->regularMesh();
+
+		for (int i = 0; i < mesh_p.n_geometry(0); ++i)
+		{
+			(*mesh_p.h_geometry<0>(i))[0] += moveDirection(i)[0];
+			(*mesh_p.h_geometry<0>(i))[1] += moveDirection(i)[1];
+		}
+		
+		/// 输出一下.
 		outputTecplotP("NS_Euler");
 		getchar();
-		
 	}
 }; 
 

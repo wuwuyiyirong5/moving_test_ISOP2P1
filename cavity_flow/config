@@ -16,6 +16,7 @@ Stokes_init = 1
 NS_init = 0
 scheme = 1
 isMoving = 1
+scale = 0.2
 max_step = 20
 alpha = 5.0		   	 
 beta = 1

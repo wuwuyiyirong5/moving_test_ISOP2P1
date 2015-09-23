@@ -9,7 +9,7 @@ void ISOP2P1::buildMatrixStruct()
     /// 压力空间自由度.
     int n_dof_p = fem_space_p.n_dof();
     /// 总自由度.
-    int n_total_dof = 2 * n_dof_v + n_dof_p;
+    int n_total_dof = DIM * n_dof_v + n_dof_p;
     /// 准备统计系数矩阵的每一行有多少个非零元.
     std::vector<unsigned int> n_non_zero_per_row(n_total_dof);
     /// 设置各块大小.
@@ -36,10 +36,10 @@ void ISOP2P1::buildMatrixStruct()
     std::vector<unsigned int> n_non_zero_per_row_mass_p(n_dof_p);
 
     /// 准备一个遍历全部单元的迭代器. 包括 v 和 p .
-    FEMSpace<double,2>::ElementIterator the_element_v = fem_space_v.beginElement();
-    FEMSpace<double,2>::ElementIterator end_element_v = fem_space_v.endElement();
-    FEMSpace<double,2>::ElementIterator the_element_p = fem_space_p.beginElement();
-    FEMSpace<double,2>::ElementIterator end_element_p = fem_space_p.endElement();
+    FEMSpace<double, DIM>::ElementIterator the_element_v = fem_space_v.beginElement();
+    FEMSpace<double, DIM>::ElementIterator end_element_v = fem_space_v.endElement();
+    FEMSpace<double, DIM>::ElementIterator the_element_p = fem_space_p.beginElement();
+    FEMSpace<double, DIM>::ElementIterator end_element_p = fem_space_p.endElement();
 
     /// 第一次循环遍历全部单元, 只是为了统计每一行的非零元个数.
     for (; the_element_v != end_element_v; ++the_element_v) 
@@ -131,7 +131,7 @@ void ISOP2P1::buildMatrixStruct()
     /// 给右下角对角元留带宽. 因为对角元实际是 0 .
     for (int i = 0; i < n_dof_p; ++i)
     {
-	n_non_zero_per_row[i + 2 * n_dof_v]++;
+	n_non_zero_per_row[i + DIM * n_dof_v]++;
 	n_non_zero_per_row_penalty[i]++;
     }
 
@@ -205,9 +205,9 @@ void ISOP2P1::buildMatrixStruct()
 		int n_element_dof_v = v_element.n_dof();
 		for (int k = 0; k < n_element_dof_v; ++k)
 		{
-		    sp_stokes.add(element_dof_p[j] + 2 * n_dof_v, element_dof_v[k]);
+		    sp_stokes.add(element_dof_p[j] + DIM * n_dof_v, element_dof_v[k]);
 		    sp_vxp.add(element_dof_p[j], element_dof_v[k]);
-		    sp_stokes.add(element_dof_p[j] + 2 * n_dof_v, element_dof_v[k] + n_dof_v);
+		    sp_stokes.add(element_dof_p[j] + DIM * n_dof_v, element_dof_v[k] + n_dof_v);
 		    sp_vyp.add(element_dof_p[j], element_dof_v[k]);
 		}
 	    }
@@ -228,7 +228,7 @@ void ISOP2P1::buildMatrixStruct()
     /// 给右下角对角元留位置.
     for (int i = 0; i < n_dof_p; ++i)
     {
-	sp_stokes.add(i + 2 * n_dof_v, i + 2 * n_dof_v);
+	sp_stokes.add(i + DIM * n_dof_v, i + DIM * n_dof_v);
 	sp_penalty.add(i, i);
     }
 

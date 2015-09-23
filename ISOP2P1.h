@@ -209,6 +209,21 @@ public:
 	 * 缺省构造. 
 	 */
 	ISOP2P1()
+		: scheme(1),
+		  NS_init(false),
+		  Stokes_init(false),
+		  time_step_control(false),
+		  angle(0),
+		  l_Euler_tol(1.0e-12),
+		  n_tol(1.0e-12),
+		  viscosity(1.0),
+		  dt(1.0e-3),
+		  n_method(1),
+		  body_force(0.0),
+		  l_tol(1.0e-12),
+		  t1(1.0),
+		  t0(0.0),
+		  t(0.0)
 	{
 		irregular_mesh_v = NULL;
 		irregular_mesh_p = NULL;
@@ -325,7 +340,12 @@ public:
 	 * @param _config_file 配置文件名.
 	 */
 	void config(std::string _config_file);
-
+	
+	/** 
+	 * debug config函数.
+	 * 
+	 */
+	void config_debug();
 	/** 
 	 * Stokes 问题的边界条件处理.
 	 * 

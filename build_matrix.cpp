@@ -6,7 +6,7 @@ void ISOP2P1::buildMatrix()
 	/// 计算一下各空间自由度和总自由度.
 	int n_dof_v = fem_space_v.n_dof();
 	int n_dof_p = fem_space_p.n_dof();
-	int n_total_dof =  2 * n_dof_v + n_dof_p;
+	int n_total_dof =  DIM * n_dof_v + n_dof_p;
 	if (n_total_dof != sp_stokes.n_rows())
 	{
 		std::cerr << "ERROR: the demision of matrix is not correct!" << std::endl;
@@ -78,7 +78,6 @@ void ISOP2P1::buildMatrix()
 			}
 		}
 	}
-
 	/// 构建系数矩阵和右端项.
 	mat_p_stiff.reinit(sp_mass_p);
 	mat_p_mass.reinit(sp_mass_p);
@@ -140,17 +139,16 @@ void ISOP2P1::buildMatrix()
 			}
 		}
 	}
-
 	std::cout << "Basic matrixes builded." << std::endl;
 };
 
 
 void ISOP2P1::updatePCDMatrix()
 {
-	FEMSpace<double,2>::ElementIterator the_element_v = fem_space_v.beginElement();
-	FEMSpace<double,2>::ElementIterator end_element_v = fem_space_v.endElement();
-	FEMSpace<double,2>::ElementIterator the_element_p = fem_space_p.beginElement();
-	FEMSpace<double,2>::ElementIterator end_element_p = fem_space_p.endElement();
+	FEMSpace<double, DIM>::ElementIterator the_element_v = fem_space_v.beginElement();
+	FEMSpace<double, DIM>::ElementIterator end_element_v = fem_space_v.endElement();
+	FEMSpace<double, DIM>::ElementIterator the_element_p = fem_space_p.beginElement();
+	FEMSpace<double, DIM>::ElementIterator end_element_p = fem_space_p.endElement();
 
 	/// 拼装压力空间散度矩阵, 用于预处理.
 	mat_pcd.reinit(sp_mass_p);
@@ -161,11 +159,11 @@ void ISOP2P1::updatePCDMatrix()
 	for (the_element_v = fem_space_v.beginElement(); 
 	     the_element_v != end_element_v; ++the_element_v) 
 	{
-		const std::vector<int>& element_dof_v = the_element_v->dof();
+		const std::vector<int> &element_dof_v = the_element_v->dof();
 		int n_element_dof_v = the_element_v->n_dof();
 		/// 压力单元信息.
-		Element<double, 2> &p_element = fem_space_p.element(index_v2p[the_element_v->index()]);
-		const std::vector<int>& element_dof_p = p_element.dof();
+		Element<double, DIM> &p_element = fem_space_p.element(index_v2p[the_element_v->index()]);
+		const std::vector<int> &element_dof_p = p_element.dof();
 		int n_element_dof_p = p_element.n_dof();
 		for (int j = 0; j < n_element_dof_v; ++j)
 		{
@@ -194,10 +192,10 @@ void ISOP2P1::updatePCDMatrix()
 	{
 		/// 几何信息.
 		double volume = the_element_p->templateElement().volume();
-		const QuadratureInfo<2>& quad_info = the_element_p->findQuadratureInfo(4);
+		const QuadratureInfo<DIM>& quad_info = the_element_p->findQuadratureInfo(4);
 		std::vector<double> jacobian = the_element_p->local_to_global_jacobian(quad_info.quadraturePoint());
 		int n_quadrature_point = quad_info.n_quadraturePoint();
-		std::vector<Point<2> > q_point = the_element_p->local_to_global(quad_info.quadraturePoint());
+		std::vector<Point<DIM> > q_point = the_element_p->local_to_global(quad_info.quadraturePoint());
 		/// 压力单元信息.
 		std::vector<std::vector<double> >  basis_value_p = the_element_p->basis_function_value(q_point);
 		std::vector<std::vector<std::vector<double> > > basis_gradient_p = the_element_p->basis_function_gradient(q_point);
@@ -225,7 +223,7 @@ void ISOP2P1::updateNonlinearMatrix()
 {
 	int n_dof_v = fem_space_v.n_dof();
 	int n_dof_p = fem_space_p.n_dof();
-	int n_total_dof = 2 * n_dof_v + n_dof_p;
+	int n_total_dof = DIM * n_dof_v + n_dof_p;
 
 	/// 更新对流矩阵块.
 	mat_v_convection.reinit(sp_vxvx);
@@ -235,10 +233,10 @@ void ISOP2P1::updateNonlinearMatrix()
 	mat_v_Jacobi_yx.reinit(sp_vxvy);
 	mat_v_Jacobi_yy.reinit(sp_vxvx);
 
-	FEMSpace<double,2>::ElementIterator the_element_v = fem_space_v.beginElement();
-	FEMSpace<double,2>::ElementIterator end_element_v = fem_space_v.endElement();
-	FEMSpace<double,2>::ElementIterator the_element_p = fem_space_p.beginElement();
-	FEMSpace<double,2>::ElementIterator end_element_p = fem_space_p.endElement();
+	FEMSpace<double, DIM>::ElementIterator the_element_v = fem_space_v.beginElement();
+	FEMSpace<double, DIM>::ElementIterator end_element_v = fem_space_v.endElement();
+	FEMSpace<double, DIM>::ElementIterator the_element_p = fem_space_p.beginElement();
+	FEMSpace<double, DIM>::ElementIterator end_element_p = fem_space_p.endElement();
 	/// 遍历速度单元, 拼装相关系数矩阵和右端项.
 	for (the_element_v = fem_space_v.beginElement(); 
 	     the_element_v != end_element_v; ++the_element_v) 
@@ -247,7 +245,7 @@ void ISOP2P1::updateNonlinearMatrix()
 		double volume = the_element_v->templateElement().volume();
 		/// 积分精度, u 和 p 都是 1 次, 梯度和散度 u 都是常数. 因此矩阵拼
 		/// 装时积分精度不用超过 1 次. (验证一下!)
-		const QuadratureInfo<DIM>& quad_info = the_element_v->findQuadratureInfo(4);
+		const QuadratureInfo<DIM> &quad_info = the_element_v->findQuadratureInfo(4);
 		std::vector<double> jacobian 
 			= the_element_v->local_to_global_jacobian(quad_info.quadraturePoint());
 		int n_quadrature_point = quad_info.n_quadraturePoint();
@@ -257,7 +255,7 @@ void ISOP2P1::updateNonlinearMatrix()
 			= the_element_v->basis_function_gradient(q_point);
 		std::vector<std::vector<double> >  basis_value_v 
 			= the_element_v->basis_function_value(q_point);
-		const std::vector<int>& element_dof_v = the_element_v->dof();
+		const std::vector<int> &element_dof_v = the_element_v->dof();
 		int n_element_dof_v = the_element_v->n_dof();
 		std::vector<double> vx_value = v_h[0].value(q_point, *the_element_v);
 		std::vector<double> vy_value = v_h[1].value(q_point, *the_element_v);
@@ -265,7 +263,7 @@ void ISOP2P1::updateNonlinearMatrix()
 		std::vector<std::vector<double> > vy_gradient = v_h[1].gradient(q_point, *the_element_v);
 		/// 压力单元信息.
 		Element<double, DIM> &p_element = fem_space_p.element(index_v2p[the_element_v->index()]);
-		const std::vector<int>& element_dof_p = p_element.dof();
+		const std::vector<int> &element_dof_p = p_element.dof();
 		std::vector<std::vector<std::vector<double> > > basis_gradient_p 
 			= p_element.basis_function_gradient(q_point);
 		std::vector<std::vector<double> >  basis_value_p = p_element.basis_function_value(q_point);

@@ -188,11 +188,11 @@ void ISOP2P1::computDivergence()
 		double volume = the_element_v->templateElement().volume();
 		/// 积分精度, u 和 p 都是 1 次, 梯度和散度 u 都是常数. 因此矩阵拼
 		/// 装时积分精度不用超过 1 次. (验证一下!)
-		const QuadratureInfo<DIM>& quad_info = the_element_v->findQuadratureInfo(2);
+		const QuadratureInfo<DIM> &quad_info = the_element_v->findQuadratureInfo(2);
 		std::vector<double> jacobian = the_element_v->local_to_global_jacobian(quad_info.quadraturePoint());
 		int n_quadrature_point = quad_info.n_quadraturePoint();
 		std::vector<Point<DIM> > q_point = the_element_v->local_to_global(quad_info.quadraturePoint());
-		const std::vector<int>& element_dof_v = the_element_v->dof();
+		const std::vector<int> &element_dof_v = the_element_v->dof();
 		int n_element_dof_v = the_element_v->n_dof();
 		std::vector<std::vector<double> > vx_gradient = v_h[0].gradient(q_point, *the_element_v);
 		std::vector<std::vector<double> > vy_gradient = v_h[1].gradient(q_point, *the_element_v);

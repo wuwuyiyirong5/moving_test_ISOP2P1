@@ -2,28 +2,28 @@
 #define DIM 2
 
 SchurComplement::SchurComplement(SparseMatrix<double> &_BTx,
-		SparseMatrix<double> &_BTy,
-		SparseMatrix<double> &_Bx,
-		SparseMatrix<double> &_By,
-		InverseMatrix &_Ax,
-		InverseMatrix &_Ay)
-:
-		BTx(&_BTx),
-		BTy(&_BTy),
-		Bx(&_Bx),
-		By(&_By),
-		AInvx(&_Ax),
-		AInvy(&_Ay),
-		tmp11(BTx->m()),
-		tmp12(BTy->m()),
-		tmp21(BTx->m()),
-		tmp22(BTy->m())
+				 SparseMatrix<double> &_BTy,
+				 SparseMatrix<double> &_Bx,
+				 SparseMatrix<double> &_By,
+				 InverseMatrix &_Ax,
+				 InverseMatrix &_Ay)
+		:
+	BTx(&_BTx),
+	BTy(&_BTy),
+	Bx(&_Bx),
+	By(&_By),
+	AInvx(&_Ax),
+	AInvy(&_Ay),
+	tmp11(BTx->m()),
+	tmp12(BTy->m()),
+	tmp21(BTx->m()),
+	tmp22(BTy->m())
 {
 };
 
 
 void SchurComplement::vmult (Vector<double>       &dst,
-		const Vector<double> &src) const
+			     const Vector<double> &src) const
 {
 	BTx->vmult (tmp11, src);
 	BTy->vmult (tmp12, src);
@@ -44,8 +44,8 @@ StokesPreconditioner::~StokesPreconditioner()
 {};
 
 void StokesPreconditioner::initialize (const SparseMatrix<double> &_stiff_vx, 
-		const SparseMatrix<double> &_stiff_vy,
-		const SparseMatrix<double> &_mass_p_diag)
+				       const SparseMatrix<double> &_stiff_vy,
+				       const SparseMatrix<double> &_mass_p_diag)
 {
 	Ax = &_stiff_vx;
 	Ay = &_stiff_vy;
@@ -55,7 +55,7 @@ void StokesPreconditioner::initialize (const SparseMatrix<double> &_stiff_vx,
 };
 
 void StokesPreconditioner::vmult (Vector<double> &dst,
-		const Vector<double> &src) const
+				  const Vector<double> &src) const
 {
 	int n_dof_v = Ax->n();
 	int n_dof_p = Q->n();
@@ -82,7 +82,7 @@ void StokesPreconditioner::vmult (Vector<double> &dst,
 };
 
 InverseMatrix::InverseMatrix (const SparseMatrix<double> &m,  const AMGSolver &a)
-:matrix (&m), amg(&a)
+ :matrix (&m), amg(&a)
 {
 };
 
@@ -91,7 +91,7 @@ InverseMatrix::~InverseMatrix()
 };
 
 void InverseMatrix::vmult(Vector<double> &dst,
-		const Vector<double> &src) const
+			  const Vector<double> &src) const
 {
 	dst = 0;
 	amg->solve(dst, src, 1e-8*src.l2_norm(), 0);

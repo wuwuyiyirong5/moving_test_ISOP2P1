@@ -30,7 +30,7 @@ void ISOP2P1::buildFEMSpace()
     fem_space_p.reinit(mesh_p, template_element);
 
     /// 建立各自的有限元空间.
-    unsigned int n_ele = mesh_v.n_geometry(2);
+    unsigned int n_ele = mesh_v.n_geometry(DIM);
     unsigned int n_vtx_v = mesh_v.n_geometry(0);
     unsigned int n_macro = mesh_p.n_geometry(2);
     unsigned int n_vtx_p = mesh_p.n_geometry(0);
@@ -48,13 +48,13 @@ void ISOP2P1::buildFEMSpace()
     fem_space_p.buildDofBoundaryMark();
 
     /// 建立数值解, 源项向量
-    v_h.resize(2);
-    v_h[0].reinit(fem_space_v);
-    v_h[1].reinit(fem_space_v);
+    v_h.resize(DIM);
+    for (int i = 0; i < DIM; ++i)
+	    v_h[i].reinit(fem_space_v);
     p_h.reinit(fem_space_p);
-    source_v.resize(2);
-    source_v[0].reinit(fem_space_v);
-    source_v[1].reinit(fem_space_v);
+    source_v.resize(DIM);
+    for (int i = 0; i < DIM; ++i)
+	    source_v[i].reinit(fem_space_v);
     source_p.reinit(fem_space_p);
 
     /// 这里施加外力项. 

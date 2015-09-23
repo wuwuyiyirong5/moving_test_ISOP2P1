@@ -8,7 +8,7 @@ void ISOP2P1::solveStokes()
 	buildStokesSys();
 	int n_dof_v = fem_space_v.n_dof();
 	int n_dof_p = fem_space_p.n_dof();
-	int n_total_dof = 2 * n_dof_v + n_dof_p;
+	int n_total_dof = DIM * n_dof_v + n_dof_p;
 
 	/// 构建系数矩阵和右端项.
 	/// 这个存放整体的数值解. 没有分割成 u_h[0], u_h[1] 和 p_h.
@@ -193,10 +193,10 @@ void ISOP2P1::solveNS(int method)
 	
 		rhs.reinit(n_total_dof);
 
-		FEMSpace<double,2>::ElementIterator the_element_v = fem_space_v.beginElement();
-		FEMSpace<double,2>::ElementIterator end_element_v = fem_space_v.endElement();
-		FEMSpace<double,2>::ElementIterator the_element_p = fem_space_p.beginElement();
-		FEMSpace<double,2>::ElementIterator end_element_p = fem_space_p.endElement();
+		FEMSpace<double, DIM>::ElementIterator the_element_v = fem_space_v.beginElement();
+		FEMSpace<double, DIM>::ElementIterator end_element_v = fem_space_v.endElement();
+		FEMSpace<double, DIM>::ElementIterator the_element_p = fem_space_p.beginElement();
+		FEMSpace<double, DIM>::ElementIterator end_element_p = fem_space_p.endElement();
 		/// 遍历速度单元, 拼装相关系数矩阵和右端项.
 		for (the_element_v = fem_space_v.beginElement(); 
 		     the_element_v != end_element_v; ++the_element_v) 
@@ -205,18 +205,18 @@ void ISOP2P1::solveNS(int method)
 			double volume = the_element_v->templateElement().volume();
 			/// 积分精度, u 和 p 都是 1 次, 梯度和散度 u 都是常数. 因此矩阵拼
 			/// 装时积分精度不用超过 1 次. (验证一下!)
-			const QuadratureInfo<2>& quad_info = the_element_v->findQuadratureInfo(4);
+			const QuadratureInfo<DIM> &quad_info = the_element_v->findQuadratureInfo(4);
 			std::vector<double> jacobian 
 				= the_element_v->local_to_global_jacobian(quad_info.quadraturePoint());
 			int n_quadrature_point = quad_info.n_quadraturePoint();
-			std::vector<Point<2> > q_point 
+			std::vector<Point<DIM> > q_point 
 				= the_element_v->local_to_global(quad_info.quadraturePoint());
 			/// 速度单元信息.
 			std::vector<std::vector<std::vector<double> > > basis_gradient_v 
 				= the_element_v->basis_function_gradient(q_point);
 			std::vector<std::vector<double> >  basis_value_v 
 				= the_element_v->basis_function_value(q_point);
-			const std::vector<int>& element_dof_v = the_element_v->dof();
+			const std::vector<int> &element_dof_v = the_element_v->dof();
 			std::vector<double> fx_value = source_v[0].value(q_point, *the_element_v);
 			std::vector<double> fy_value = source_v[1].value(q_point, *the_element_v);
 			int n_element_dof_v = the_element_v->n_dof();
@@ -225,8 +225,8 @@ void ISOP2P1::solveNS(int method)
 			std::vector<std::vector<double> > vx_gradient = v_h[0].gradient(q_point, *the_element_v);
 			std::vector<std::vector<double> > vy_gradient = v_h[1].gradient(q_point, *the_element_v);
 			/// 压力单元信息.
-			Element<double, 2> &p_element = fem_space_p.element(index_v2p[the_element_v->index()]);
-			const std::vector<int>& element_dof_p = p_element.dof();
+			Element<double, DIM> &p_element = fem_space_p.element(index_v2p[the_element_v->index()]);
+			const std::vector<int> &element_dof_p = p_element.dof();
 			std::vector<std::vector<std::vector<double> > > basis_gradient_p 
 				= p_element.basis_function_gradient(q_point);
 			std::vector<std::vector<double> >  basis_value_p = p_element.basis_function_value(q_point);
@@ -270,14 +270,14 @@ void ISOP2P1::solveNS(int method)
 				for (int k = 0; k < n_chi; k++)
 				{
 					/// 速度单元信息.
-					Element<double, 2> &v_element = fem_space_v.element(index_p2v[idx_p][k]);
+					Element<double, DIM> &v_element = fem_space_v.element(index_p2v[idx_p][k]);
 					/// 几何信息.
 					double volume = v_element.templateElement().volume();
-					const QuadratureInfo<2>& quad_info = v_element.findQuadratureInfo(4);
+					const QuadratureInfo<DIM>& quad_info = v_element.findQuadratureInfo(4);
 					std::vector<double> jacobian 
 						= v_element.local_to_global_jacobian(quad_info.quadraturePoint());
 					int n_quadrature_point = quad_info.n_quadraturePoint();
-					std::vector<Point<2> > q_point 
+					std::vector<Point<DIM> > q_point 
 						= v_element.local_to_global(quad_info.quadraturePoint());
 					std::vector<std::vector<double> > vx_gradient 
 						= v_h[0].gradient(q_point, v_element);
@@ -464,7 +464,7 @@ void ISOP2P1::buildStokesSys()
 {
 	int n_dof_v = fem_space_v.n_dof();
 	int n_dof_p = fem_space_p.n_dof();
-	int n_total_dof = 2 * n_dof_v + n_dof_p;
+	int n_total_dof = DIM * n_dof_v + n_dof_p;
     
 	matrix.reinit(sp_stokes);
 
@@ -497,7 +497,7 @@ void ISOP2P1::buildNewtonSys4NS()
 {
 	int n_dof_v = fem_space_v.n_dof();
 	int n_dof_p = fem_space_p.n_dof();
-	int n_total_dof = 2 * n_dof_v + n_dof_p;
+	int n_total_dof = DIM * n_dof_v + n_dof_p;
 
 	/// (0, 0)
 	for (int i = 0; i < sp_vxvx.n_nonzero_elements(); ++i)
@@ -522,7 +522,7 @@ void ISOP2P1::buildPicardSys4NS()
 {
 	int n_dof_v = fem_space_v.n_dof();
 	int n_dof_p = fem_space_p.n_dof();
-	int n_total_dof = 2 * n_dof_v + n_dof_p;
+	int n_total_dof = DIM * n_dof_v + n_dof_p;
 
 	/// (0, 0)
 	for (int i = 0; i < sp_vxvx.n_nonzero_elements(); ++i)

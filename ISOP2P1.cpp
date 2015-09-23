@@ -16,6 +16,10 @@ void ISOP2P1::initialize()
 {
 	/// 读取配置文件.
 	config("config");
+	
+	/// debug
+	config_debug();
+	getchar();
 	/// 构建网格.
 	buildMesh();
 	/// 构建混合有限元 ISOP1P2 空间. 
@@ -37,14 +41,14 @@ void ISOP2P1::run()
 		double scale_step = 0.2;
 		scale = scale_step;
 		do {
-			PoiseuilleVx poiseuille_vx(-1.0, 1.0);
-			PoiseuilleVy poiseuille_vy;
-			Operator::L2Project(poiseuille_vx, v_h[0], Operator::LOCAL_LEAST_SQUARE, 3);
-			Operator::L2Project(poiseuille_vy, v_h[1], Operator::LOCAL_LEAST_SQUARE, 3);
+			// PoiseuilleVx poiseuille_vx(-1.0, 1.0);
+			// PoiseuilleVy poiseuille_vy;
+			// Operator::L2Project(poiseuille_vx, v_h[0], Operator::LOCAL_LEAST_SQUARE, 3);
+			// Operator::L2Project(poiseuille_vy, v_h[1], Operator::LOCAL_LEAST_SQUARE, 3);
 
-			// buildMatrix();
-			// // stepForwardEuler();
-			// solveStokes();
+			buildMatrix();
+			// stepForwardEuler();
+			solveStokes();
 			v_h[0].scale(scale);
 			v_h[1].scale(scale);
 			movingMesh();
@@ -54,15 +58,15 @@ void ISOP2P1::run()
 		/// 重新设置scale 为1.0.
 		scale = 1.0;
 	}
-	PoiseuilleVx poiseuille_vx(-1.0, 1.0);
-	PoiseuilleVy poiseuille_vy;
-	Operator::L2Project(poiseuille_vx, v_h[0], Operator::LOCAL_LEAST_SQUARE, 3);
-	Operator::L2Project(poiseuille_vy, v_h[1], Operator::LOCAL_LEAST_SQUARE, 3);
-	outputSolution();
+	// PoiseuilleVx poiseuille_vx(-1.0, 1.0);
+	// PoiseuilleVy poiseuille_vy;
+	// Operator::L2Project(poiseuille_vx, v_h[0], Operator::LOCAL_LEAST_SQUARE, 3);
+	// Operator::L2Project(poiseuille_vy, v_h[1], Operator::LOCAL_LEAST_SQUARE, 3);
+	// outputSolution();
 	// v_h[0].reinit(fem_space_v);
 	// v_h[1].reinit(fem_space_v);
 	// p_h.reinit(fem_space_p);
-	// solveStokes();
+	solveStokes();
 	outputTecplotP("P0");
 	outputTecplot("initial_value0");
 	getchar();
@@ -100,6 +104,10 @@ void ISOP2P1::run()
 		/// 网格移动.
 		if (isMoving == 1)
 			movingMesh();
+		/// 输出一下P网格上的压力,monitor,以及网格移动方向.
+		outputTecplotP("NS_Euler");
+		getchar();
+
 		/// 输出.
 		// if (isOutput)
 		// {

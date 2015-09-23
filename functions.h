@@ -8,23 +8,23 @@
 class BurgV : public Function<double>
 {
 private:
-    double a;
-    double t;
+	double a;
+	double t;
 public:
-    BurgV(double _a, double _t) : a(_a), t(_t) 
-    {};
-    ~BurgV()
-    {};
+BurgV(double _a, double _t) : a(_a), t(_t) 
+	{};
+	~BurgV()
+	{};
 public:
-    double value(const double *p) const
-    {
-	return 1.0 / (1.0 + exp((p[0] + p[1] - t) / (2.0 * a)));
-    };
-    std::vector<double> gradient(const double *p) const
-    {
-	std::vector<double> result(2);
-	return result;
-    };
+	double value(const double *p) const
+	{
+		return 1.0 / (1.0 + exp((p[0] + p[1] - t) / (2.0 * a)));
+	};
+	std::vector<double> gradient(const double *p) const
+	{
+		std::vector<double> result(2);
+		return result;
+	};
 };
 
 class RealVx : public Function<double>
@@ -268,8 +268,8 @@ private:
 	double body_force;
 	double angle;
 public:
-        ForceY(double _bf, double _an) : body_force(_bf),
-	                               	angle(_an)
+ForceY(double _bf, double _an) : body_force(_bf),
+		angle(_an)
 		{};
 	~ForceY()
 	{};
@@ -304,8 +304,8 @@ public:
 	 * 
 	 * @return 
 	 */
-        BoundaryMapping(MovingMesh2D::Domain &_domain, 
-	                	Mesh<DIM> &_mesh,
+BoundaryMapping(MovingMesh2D::Domain &_domain, 
+		Mesh<DIM> &_mesh,
 		int _mode) 
 	: domain(&_domain), mesh(&_mesh), mode(_mode)
 	{}; 
